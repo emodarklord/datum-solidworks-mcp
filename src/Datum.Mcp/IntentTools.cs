@@ -12,7 +12,7 @@ public static class IntentTools
 
     [Toolset(Toolset)]
     [McpServerTool(Name = "intent_export", Destructive = false, OpenWorld = false)]
-    [Description("Write this session's modelling steps to a JSON file in the Datum folder, in the order they were made. Gateway calls are tagged solidworks. Intent v0 can replay sketches on planes and features that use feature handles; steps that name a face or edge can't be replayed yet.")]
+    [Description("Write this session's modelling steps to a JSON file in the Datum folder, in the order they were made. Gateway calls are tagged solidworks. Faces and edges are recorded by their geometry, so a replay in a new session finds them again. Steps on assembly components can't be replayed yet.")]
     public static async Task<CallToolResult> Export(
         SolidWorksConnection solidWorks,
         Workspace workspace,

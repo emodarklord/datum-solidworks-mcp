@@ -25,7 +25,7 @@ public sealed class IntentTests
     }
 
     [Fact]
-    public async Task AFaceHandleStopsAReplayAndSaysWhy()
+    public async Task AFaceWithNoRecordedGeometryStopsAReplayAndSaysWhy()
     {
         var log = new IntentLog();
         log.Add("sketch_begin", Args("""{"on":"face#12"}"""), "");
@@ -33,6 +33,27 @@ public sealed class IntentTests
         var refused = await Assert.ThrowsAsync<DatumException>(() => IntentLog.ReplayAsync(log.Steps, (_, _) => Task.FromResult("")));
 
         Assert.Contains("face#12", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FacesAndEdgesAreFoundAgainByTheirGeometry()
+    {
+        var log = new IntentLog();
+        log.Add("sketch_begin", Args("""{"on":"face#12"}"""), "", new() { ["face#12"] = "face:plane 6000 mm² normal +z centre 0,0,20" });
+        log.Add("feature_fillet", Args("""{"edges":["edge#40"]}"""), "", new() { ["edge#40"] = "edge:line 100 mm|plane 6000 mm² normal +z centre 0,0,20|plane 2000 mm² normal +y centre 0,30,10" });
+        var calls = new List<string>();
+        var faces = "face#3 plane 2000 mm² normal +y centre 0,30,10\nface#7 plane 6000 mm² normal +z centre 0,0,20\n";
+        var edges = "edge#8 line 100 mm faces face#7,face#9\nedge#9 line 100 mm faces face#7,face#3\n";
+
+        await IntentLog.ReplayAsync(IntentLog.Import(log.Export()), (tool, args) =>
+        {
+            var json = JsonSerializer.Serialize(args);
+            calls.Add($"{tool} {json}");
+            return Task.FromResult(tool == "model_faces" ? (json.Contains("edge", StringComparison.Ordinal) ? edges : faces) : "ok");
+        });
+
+        Assert.Contains("""sketch_begin {"on":"face#7"}""", calls);
+        Assert.Contains("""feature_fillet {"edges":["edge#9"]}""", calls);
     }
 
     [Theory]

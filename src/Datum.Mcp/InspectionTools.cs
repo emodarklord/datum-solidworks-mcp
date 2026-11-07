@@ -138,18 +138,61 @@ public static class InspectionTools
             },
             cancellationToken));
 
-    private static string FacePage(EntityPage<FaceInfo> page) =>
-        Footer(page, page.Items.Select(f =>
-            $"{f.Handle} {Kind(f.Surface)} {N(f.AreaMm2)} mm²"
-            + (f.Normal is { } n ? $" normal {EntityQuery.DescribeDirection(n)}" : "")
-            + (f.RadiusMm is { } r ? $" radius {N(r)} mm" : "")
-            + $" centre {f.Center}"
-            + (f.Feature is null ? "" : $" ({f.Feature})")));
+    private static string FacePage(EntityPage<FaceInfo> page) => Footer(page, page.Items.Select(f => $"{f.Handle} {FaceKey(f)}"));
+
+    internal static string EdgeKey(EdgeInfo e) => $"{Kind(e.Curve)} {N(e.LengthMm)} mm" + (e.RadiusMm is { } r ? $" radius {N(r)} mm" : "");
+
+    // Faces and edges by their geometry, for Intent to find them again in another session. A handle it can't describe is
+    // left out, and replay then says so.
+    internal static async Task<Dictionary<string, string>> DescribeAsync(SolidWorksConnection solidWorks, IReadOnlyList<string> handles, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await solidWorks.UseAsync(
+                async client =>
+                {
+                    var active = (await client.RunAsync(b => b.ListDocuments(), cancellationToken: cancellationToken).ConfigureAwait(false)).FirstOrDefault(d => d.Active && d.Type == DocumentType.Part);
+                    if (active is null)
+                    {
+                        return new Dictionary<string, string>();
+                    }
+
+                    var faces = (await client.RunAsync(b => b.ListFaces(active.Id), cancellationToken: cancellationToken).ConfigureAwait(false)).ToDictionary(f => f.Handle, FaceKey, StringComparer.OrdinalIgnoreCase);
+                    var edges = await client.RunAsync(b => b.ListEdges(active.Id), cancellationToken: cancellationToken).ConfigureAwait(false);
+                    var described = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var handle in handles)
+                    {
+                        if (faces.TryGetValue(handle, out var face))
+                        {
+                            described[handle] = $"face:{face}";
+                        }
+                        else if (edges.FirstOrDefault(e => string.Equals(e.Handle, handle, StringComparison.OrdinalIgnoreCase)) is { Faces.Count: 2 } edge)
+                        {
+                            described[handle] = $"edge:{EdgeKey(edge)}|{string.Join("|", edge.Faces.Select(f => faces.GetValueOrDefault(f, "")))}";
+                        }
+                    }
+
+                    return described;
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (DatumException)
+        {
+            return [];
+        }
+    }
+
+    // Everything about a face but its handle, which is what Intent matches it by on replay.
+    internal static string FaceKey(FaceInfo f) =>
+        $"{Kind(f.Surface)} {N(f.AreaMm2)} mm²"
+        + (f.Normal is { } n ? $" normal {EntityQuery.DescribeDirection(n)}" : "")
+        + (f.RadiusMm is { } r ? $" radius {N(r)} mm" : "")
+        + $" centre {f.Center}"
+        + (f.Feature is null ? "" : $" ({f.Feature})");
 
     private static string EdgePage(EntityPage<EdgeInfo> page) =>
         Footer(page, page.Items.Select(e =>
-            $"{e.Handle} {Kind(e.Curve)} {N(e.LengthMm)} mm"
-            + (e.RadiusMm is { } r ? $" radius {N(r)} mm" : "")
+            $"{e.Handle} {EdgeKey(e)}"
             + (e.Faces.Count > 0 ? $" faces {string.Join(",", e.Faces)}" : "")));
 
     private static string Footer<T>(EntityPage<T> page, IEnumerable<string> lines)

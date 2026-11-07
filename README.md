@@ -161,7 +161,7 @@ Three Claude models each built 30 parts through Datum alone, and all 30 passed f
 - `view_capture` renders through the SOLIDWORKS window, so that window must not be minimized. While a sketch is open, its entities don't show in the image.
 - Sheet metal has no edge flange tool. An open profile in `sheet_base` or a `sheet_bend` makes the same shapes.
 - `try_start` works through checkpoints rather than a real copy, so a delete during a trial can't be discarded.
-- Intent v0 replays sketches on planes and features that use feature handles. It stops at a step that names a face or edge.
+- Intent replays parts, including steps on faces and edges, which it finds again by their geometry. It doesn't replay assembly steps yet.
 - `run_macro` has only been tested as far as its refusals, not with a real macro.
 - SOLIDWORKS grows during very long sessions. Restart it between large batches.
 - Windows only, because SOLIDWORKS is.

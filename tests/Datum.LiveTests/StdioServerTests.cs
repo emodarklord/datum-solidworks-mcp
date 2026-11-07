@@ -37,8 +37,16 @@ public class StdioServerTests
             await first.CallToolAsync("sketch_add", Args(("entities", new object[] { new Dictionary<string, object?> { ["type"] = "center_rect", ["cx"] = 0, ["cy"] = 0, ["width"] = 70, ["height"] = 30 } })));
             var sketch = TextOf(await first.CallToolAsync("sketch_end"));
             await first.CallToolAsync("feature_extrude", Args(("sketch", System.Text.RegularExpressions.Regex.Match(sketch, @"feat#\d+").Value), ("depth", 12)));
+            await first.CallToolAsync("toolset_enable", Args(("name", "features")));
+            var top = TextOf(await first.CallToolAsync("model_faces", Args(("normal", "+z"), ("limit", 1)))).Split(' ')[0];
+            await first.CallToolAsync("sketch_begin", Args(("on", top)));
+            await first.CallToolAsync("sketch_add", Args(("entities", new object[] { new Dictionary<string, object?> { ["type"] = "circle", ["cx"] = 10, ["cy"] = 0, ["radius"] = 4 } })));
+            var hole = TextOf(await first.CallToolAsync("sketch_end"));
+            await first.CallToolAsync("feature_extrude", Args(("sketch", System.Text.RegularExpressions.Regex.Match(hole, @"feat#\d+").Value), ("cut", true), ("end", "through_all")));
+            var edge = TextOf(await first.CallToolAsync("model_faces", Args(("kind", "edge"), ("direction", "z"), ("limit", 1)))).Split(' ')[0];
+            Assert.False(TextOf(await first.CallToolAsync("feature_fillet", Args(("edges", new[] { edge }), ("radius", 3)))).StartsWith("INVALID", StringComparison.Ordinal));
             info = TextOf(await first.CallToolAsync("model_info"));
-            Assert.Contains("Wrote 5 steps", TextOf(await first.CallToolAsync("intent_export", Args(("path", file)))), StringComparison.Ordinal);
+            Assert.Contains("Wrote 12 steps", TextOf(await first.CallToolAsync("intent_export", Args(("path", file)))), StringComparison.Ordinal);
             await first.CallToolAsync("doc_close", Args(("discardChanges", true)));
         }
 
@@ -53,7 +61,6 @@ public class StdioServerTests
         await second.CallToolAsync("doc_close", Args(("discardChanges", true)));
         File.Delete(file);
 
-        Assert.Contains("volume 25200 mm³", replayed, StringComparison.Ordinal);
         Assert.Equal(info[(info.IndexOf('\n', StringComparison.Ordinal) + 1)..], replayed[(replayed.IndexOf('\n', StringComparison.Ordinal) + 1)..]);
     }
 

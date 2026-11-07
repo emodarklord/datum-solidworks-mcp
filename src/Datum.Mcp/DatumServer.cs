@@ -47,12 +47,15 @@ public static class DatumServer
             })
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, cancellationToken) =>
             {
-                var reply = await next(context, cancellationToken).ConfigureAwait(false);
                 var tool = context.Params?.Name ?? "";
+                var connection = context.Services?.GetRequiredService<SolidWorksConnection>();
+                var loose = IntentLog.Records(tool) ? IntentLog.LooseHandles(System.Text.Json.JsonSerializer.Serialize(context.Params?.Arguments)) : [];
+                var refs = connection is not null && loose.Count > 0 ? await InspectionTools.DescribeAsync(connection, loose, cancellationToken).ConfigureAwait(false) : [];
+                var reply = await next(context, cancellationToken).ConfigureAwait(false);
                 if (reply.IsError != true && IntentLog.Records(tool))
                 {
                     var text = string.Concat(reply.Content.OfType<TextContentBlock>().Select(block => block.Text));
-                    context.Services?.GetRequiredService<SolidWorksConnection>().Intent.Add(tool, context.Params?.Arguments?.ToDictionary(), text);
+                    connection?.Intent.Add(tool, context.Params?.Arguments?.ToDictionary(), text, refs);
                 }
 
                 return reply;
