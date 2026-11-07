@@ -22,6 +22,7 @@ public enum ErrorCode
     CannotRestore,
     NotAllowed,
     NotInVersion,
+    Unexpected,
 }
 
 public static partial class ErrorCodes
