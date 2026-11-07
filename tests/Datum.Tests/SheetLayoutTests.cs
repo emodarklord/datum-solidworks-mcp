@@ -89,7 +89,7 @@ public sealed class SheetLayoutTests
 
         var picks = DimensionPlan.Choose(View(), entities, [], []);
 
-        Assert.Equal(["edge#1", "edge#2", "edge#4"], picks.Select(p => p.First));
+        Assert.Equal(["edge#1", "edge#2", "edge#4", "edge#2", "edge#1"], picks.Select(p => p.First));
     }
 
     [Fact]
@@ -129,6 +129,22 @@ public sealed class SheetLayoutTests
         ];
 
         Assert.Equal(["edge#1", "edge#2"], DimensionPlan.Overall(View(), entities, []).Select(p => p.First));
+    }
+
+    [Fact]
+    public void AHoleIsLocatedFromTheLeftAndBottomEdges()
+    {
+        ViewEntity[] entities =
+        [
+            new("edge#1", "line", 60, 80, 140, 80),
+            new("edge#2", "line", 60, 120, 60, 80),
+            new("edge#3", "line", 140, 80, 140, 120),
+            new("edge#4", "circle", 80, 95, 84, 95),
+        ];
+
+        var located = DimensionPlan.Choose(View(), entities, [], []).Where(p => p.Second == "edge#4").Select(p => p.First).ToList();
+
+        Assert.Equal(["edge#2", "edge#1"], located);
     }
 
     [Fact]

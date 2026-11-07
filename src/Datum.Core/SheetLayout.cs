@@ -22,6 +22,9 @@ public static class SheetLayout
     private const double Gap = 30;
     private const double TitleClearance = 6;
 
+    // Place puts views exactly DimensionRoom from the edge, so rounding must not count as running over.
+    private const double FitTolerance = 0.01;
+
     private static readonly (double Numerator, double Denominator)[] Scales =
         [(5, 1), (2, 1), (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 8), (1, 10), (1, 12), (1, 15), (1, 20), (1, 25), (1, 50), (1, 100)];
 
@@ -47,7 +50,7 @@ public static class SheetLayout
             var view = sized.Single(v => v.Handle == p.Handle);
             return new SheetBox(p.X - (view.Width / 2), p.Y - (view.Height / 2), p.X + (view.Width / 2), p.Y + (view.Height / 2));
         }).ToList();
-        return boxes.All(box => box.Inset(-DimensionRoom).Within(usable))
+        return boxes.All(box => box.Inset(-DimensionRoom + FitTolerance).Within(usable))
             && !boxes.SelectMany((box, i) => boxes.Skip(i + 1).Select(other => box.Inset(-Gap / 2).Overlaps(other.Inset(-Gap / 2)))).Any(clash => clash);
     }
 
@@ -112,6 +115,9 @@ public static class DimensionPlan
 
     // Beyond the overall sizes, so a view stays readable.
     private const int MostEdges = 3;
+
+    // Located holes per view; past this a drawing needs a hole table, which Datum doesn't make.
+    private const int MostHoles = 6;
     private const double StraightTolerance = 0.05;
 
     // Overall sizes, then edges whose length is a size the model still needs (wanted, in sheet mm), which picks up
@@ -193,7 +199,35 @@ public static class DimensionPlan
             }
         }
 
+        picks.AddRange(Locations(view, entities, across.Low, straight.Where(e => Math.Abs(e.Y1 - e.Y2) < StraightTolerance).MinBy(e => e.Y1)));
+
         return picks;
+    }
+
+    // Each hole's centre from the left and bottom edges of the view, once for each distinct distance, below and to the
+    // right of the view, clear of the overall sizes above and to the left and the diameters just right of it.
+    private static IEnumerable<DimensionPick> Locations(ViewInfo view, IReadOnlyList<ViewEntity> entities, ViewEntity? left, ViewEntity? bottom)
+    {
+        var across = new List<double>();
+        var up = new List<double>();
+        var below = view.Y - (view.Height / 2) - FirstRow;
+        var beside = view.X + (view.Width / 2) + SideRoom + (2 * Step);
+        foreach (var circle in entities.Where(e => e.Kind == "circle").Take(MostHoles))
+        {
+            if (left is not null && circle.X1 - left.X1 is var dx and > SmallestSize && !across.Any(known => Math.Abs(known - dx) < StraightTolerance))
+            {
+                across.Add(dx);
+                yield return new DimensionPick(left.Handle, circle.Handle, (left.X1 + circle.X1) / 2, below);
+                below -= Step;
+            }
+
+            if (bottom is not null && circle.Y1 - bottom.Y1 is var dy and > SmallestSize && !up.Any(known => Math.Abs(known - dy) < StraightTolerance))
+            {
+                up.Add(dy);
+                yield return new DimensionPick(bottom.Handle, circle.Handle, beside, (bottom.Y1 + circle.Y1) / 2);
+                beside += Step;
+            }
+        }
     }
 
     // Beside the middle of a sloped edge, on the side away from the view's centre.

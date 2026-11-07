@@ -12,6 +12,8 @@ public static class DrawingTools
 {
     private const string Toolset = "drawing";
 
+    // Keeps a dimension's text inside the sheet when its planned spot would fall past the border.
+    private const double EdgeRoom = 8;
     private const double BalloonRoom = 10;
     private const double BalloonReach = 34;
 
@@ -459,6 +461,7 @@ public static class DrawingTools
                 var report = new StringBuilder();
                 var added = new List<double>();
                 var onAssembly = false;
+                var area = SheetLayout.Usable(facts);
                 foreach (var sheetView in facts.Views.Where(v => view is null ? !v.Isometric : v.View.Handle == view))
                 {
                     var (numerator, denominator) = DrawingScale.Parse(sheetView.View.Scale);
@@ -472,7 +475,7 @@ public static class DrawingTools
                     // Each part's details belong on its own sheet.
                     foreach (var pick in assembly ? DimensionPlan.Overall(sheetView.View, entities, shown) : DimensionPlan.Choose(sheetView.View, entities, shown, wanted))
                     {
-                        var made = await client.RunAsync(b => b.AddSheetDimension(target.Id, sheetView.View.Handle, pick.First, pick.Second, pick.X, pick.Y), DrawingTimeout, cancellationToken).ConfigureAwait(false);
+                        var made = await client.RunAsync(b => b.AddSheetDimension(target.Id, sheetView.View.Handle, pick.First, pick.Second, Math.Clamp(pick.X, area.Left + EdgeRoom, area.Right - EdgeRoom), Math.Clamp(pick.Y, area.Bottom + EdgeRoom, area.Top - EdgeRoom)), DrawingTimeout, cancellationToken).ConfigureAwait(false);
                         added.Add(made.Value);
                         report.Append(CultureInfo.InvariantCulture, $"{made}\n");
                     }

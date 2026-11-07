@@ -452,6 +452,8 @@ public sealed partial class DrawingTests : IDisposable
             Assert.Contains(" 120 mm", added, StringComparison.Ordinal);
             Assert.Contains(" 60 mm", added, StringComparison.Ordinal);
             Assert.Contains(" 16 mm", added, StringComparison.Ordinal);
+            Assert.Contains(" 80 mm", added, StringComparison.Ordinal);
+            Assert.Contains(" 30 mm", added, StringComparison.Ordinal);
             Assert.Contains("No problems found", report, StringComparison.Ordinal);
         }
         finally
