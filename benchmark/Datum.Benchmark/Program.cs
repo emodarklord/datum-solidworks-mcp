@@ -66,7 +66,7 @@ return 0;
 // newest part starting with the task id counts, as long as it was written during this run.
 string Saved(BenchmarkTask task, string asked, DateTime since) =>
     new DirectoryInfo(Path.GetDirectoryName(asked)!).EnumerateFiles($"{task.Id}*.SLDPRT")
-        .Where(f => f.LastWriteTime >= since && (f.Name.Length == task.Id.Length + 7 || !char.IsLetterOrDigit(f.Name[task.Id.Length])))
+        .Where(f => f.LastWriteTime >= since && (f.Name.Length == task.Id.Length + 7 || !char.IsLetter(f.Name[task.Id.Length])))
         .OrderByDescending(f => f.LastWriteTime)
         .FirstOrDefault()?.FullName ?? asked;
 
