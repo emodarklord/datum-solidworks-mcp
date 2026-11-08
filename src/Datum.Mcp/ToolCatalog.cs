@@ -8,8 +8,12 @@ public sealed record CatalogEntry(string Name, string Toolset, string Descriptio
 // Owns the server's tool list: keeps every registered tool aside and lists only core tools,
 // enabled toolsets and tools the connected SOLIDWORKS can run. Changes reach the client as
 // notifications/tools/list_changed.
-public sealed class ToolCatalog(bool allTools)
+public sealed class ToolCatalog(bool allTools, bool readOnly = false)
 {
+    // Change only what SOLIDWORKS has open, never a model or file; invoke refuses writes by itself in read-only mode.
+    private static readonly HashSet<string> SessionOnly = ["toolset_enable", "doc_open", "doc_activate", "model_select", "invoke"];
+    private const string ReadOnlyReason = "Datum runs read-only";
+
     public const string Core = "core";
     private const string Listed = "listed";
 
@@ -75,6 +79,19 @@ public sealed class ToolCatalog(bool allTools)
         }
     }
 
+    public DatumException? ReadOnlyRefusal(string name)
+    {
+        lock (_lock)
+        {
+            return _all.FirstOrDefault(t => t.ProtocolTool.Name == name) is { } tool && Writes(tool)
+                ? new DatumException(ErrorCode.NotAllowed, $"{name} can change a model and {ReadOnlyReason}", "Restart Datum without --read-only or DATUM_READ_ONLY to make changes")
+                : null;
+        }
+    }
+
+    private bool Writes(McpServerTool tool) =>
+        readOnly && tool.ProtocolTool.Annotations?.ReadOnlyHint != true && !SessionOnly.Contains(tool.ProtocolTool.Name);
+
     private static string ToolsetOf(McpServerTool tool) => tool.Metadata.OfType<ToolsetAttribute>().FirstOrDefault()?.Name ?? Core;
 
     private CatalogEntry Describe(McpServerTool tool)
@@ -89,6 +106,11 @@ public sealed class ToolCatalog(bool allTools)
 
     private string? UnavailableReason(McpServerTool tool)
     {
+        if (Writes(tool))
+        {
+            return ReadOnlyReason;
+        }
+
         var requirements = tool.Metadata.OfType<IToolRequirement>().ToList();
         if (requirements.Count == 0)
         {
@@ -101,7 +123,7 @@ public sealed class ToolCatalog(bool allTools)
     }
 
     private bool IsListed(McpServerTool tool) =>
-        allTools || ((ToolsetOf(tool) == Core || _enabled.Contains(ToolsetOf(tool))) && UnavailableReason(tool) is null);
+        (allTools && !Writes(tool)) || ((ToolsetOf(tool) == Core || _enabled.Contains(ToolsetOf(tool))) && UnavailableReason(tool) is null);
 
     private void Refresh()
     {

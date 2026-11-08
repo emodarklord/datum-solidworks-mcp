@@ -76,6 +76,7 @@ Options (for `datum` itself, and accepted by `datum install`):
 | `--allow <folder>` | An extra folder Datum may write to. Repeat it for more folders. `DATUM_ALLOW` takes a `;`-separated list. The default is `Documents\Datum`. |
 | `--all-tools` | List every tool up front, for clients that don't handle `tools/list_changed`. |
 | `--allow-invoke-writes` | Let `invoke` make calls that may change a model. Without it the gateway only reads. `DATUM_ALLOW_INVOKE_WRITES=1` does the same. |
+| `--read-only` | Offer only tools that can't change a model or file: reading, checks, captures, and opening or switching documents. Overrides the invoke and macro switches. `DATUM_READ_ONLY=1` does the same. |
 | `--allow-macros` | Let `run_macro` run SOLIDWORKS macros. Datum can't undo what a macro does. |
 
 ## Tools

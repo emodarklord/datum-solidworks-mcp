@@ -11,6 +11,9 @@ public sealed record DatumOptions
     // notifications/tools/list_changed.
     public bool AllTools { get; init; }
 
+    // Offers only tools that can't change a model or file, and overrides the invoke and macro switches.
+    public bool ReadOnly { get; init; }
+
     public Workspace? Workspace { get; init; }
 
     // Lets invoke make calls that may change a model; reads work either way.
@@ -47,7 +50,7 @@ public static class DatumServer
         });
         services.AddSingleton(provider =>
         {
-            var catalog = new ToolCatalog(options.AllTools);
+            var catalog = new ToolCatalog(options.AllTools, options.ReadOnly);
             provider.GetRequiredService<SolidWorksConnection>().CapabilitiesChanged += catalog.Update;
             return catalog;
         });
@@ -74,6 +77,11 @@ public static class DatumServer
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, cancellationToken) =>
             {
                 var tool = context.Params?.Name ?? "";
+                if (context.Services?.GetRequiredService<ToolCatalog>().ReadOnlyRefusal(tool) is { } refusal)
+                {
+                    return new CallToolResult { Content = [new TextContentBlock { Text = refusal.ToString() }], IsError = true };
+                }
+
                 context.Services?.GetRequiredService<ResourceSubscriptions>().Seen(context.Server);
                 var connection = context.Services?.GetRequiredService<SolidWorksConnection>();
                 if (connection is not null && context.Params?.Arguments is { } args && Selected.Mentioned(args))

@@ -86,7 +86,7 @@ internal static class Install
                 case "--allow" when i + 1 < options.Length:
                     serverArgs.AddRange(["--allow", Path.GetFullPath(options[++i])]);
                     break;
-                case "--all-tools" or "--allow-invoke-writes":
+                case "--all-tools" or "--allow-invoke-writes" or "--read-only":
                     serverArgs.Add(options[i]);
                     break;
                 case "--dry-run":

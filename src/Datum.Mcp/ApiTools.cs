@@ -45,7 +45,7 @@ public static class ApiTools
         ToolErrors.Run(() => solidWorks.UseAsync(
             async client =>
             {
-                if (!options.AllowMacros)
+                if (!options.AllowMacros || options.ReadOnly)
                 {
                     throw new DatumException(ErrorCode.NotAllowed, "macros are off", "Start datum with --allow-macros");
                 }
@@ -114,7 +114,7 @@ public static class ApiTools
             async client =>
             {
                 var id = await DocumentIdAsync(client, doc, cancellationToken).ConfigureAwait(false);
-                var writes = !options.AllowInvokeWrites ? GatewayWrites.Disabled
+                var writes = !options.AllowInvokeWrites || options.ReadOnly ? GatewayWrites.Disabled
                     : id is not null && !workspace.IsEditable(id) ? GatewayWrites.NotOwned
                     : GatewayWrites.Allowed;
                 var request = new ApiCall(target, member, args ?? [], value, @as);
