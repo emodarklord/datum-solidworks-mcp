@@ -116,6 +116,6 @@ public static class DatumServer
 
                 return reply;
             }))
-            .WithTools([typeof(StatusTools), typeof(ToolsetTools), typeof(DocumentTools), typeof(InspectionTools), typeof(SketchTools), typeof(FeatureTools), typeof(EditTools), typeof(ViewTools), typeof(CheckTools), typeof(AssemblyTools), typeof(DrawingTools), typeof(MotionTools), typeof(WeldmentTools), typeof(SheetMetalTools), typeof(IntentTools), typeof(LiveTools), typeof(EquationTools), typeof(ApiTools)]);
+            .WithTools([typeof(StatusTools), typeof(ToolsetTools), typeof(DocumentTools), typeof(InspectionTools), typeof(SketchTools), typeof(FeatureTools), typeof(EditTools), typeof(ViewTools), typeof(CheckTools), typeof(AssemblyTools), typeof(DrawingTools), typeof(MotionTools), typeof(WeldmentTools), typeof(SheetMetalTools), typeof(IntentTools), typeof(LiveTools), typeof(EquationTools), typeof(BatchTools), typeof(ApiTools)]);
     }
 }
