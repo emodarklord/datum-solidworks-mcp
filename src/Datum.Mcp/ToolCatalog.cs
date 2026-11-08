@@ -79,6 +79,14 @@ public sealed class ToolCatalog(bool allTools, bool readOnly = false)
         }
     }
 
+    public McpServerTool? Tool(string name)
+    {
+        lock (_lock)
+        {
+            return _all.FirstOrDefault(t => t.ProtocolTool.Name == name);
+        }
+    }
+
     public DatumException? ReadOnlyRefusal(string name)
     {
         lock (_lock)

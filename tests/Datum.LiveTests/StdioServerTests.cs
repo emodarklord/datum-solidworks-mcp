@@ -27,7 +27,7 @@ public class StdioServerTests
     [Fact]
     public async Task ASessionsIntentReplaysToTheSamePart()
     {
-        var file = Path.Combine(Path.GetTempPath(), $"datum-intent-{Guid.NewGuid():N}.json");
+        var file = Path.Combine(Path.GetTempPath(), $"datum-{Guid.NewGuid():N}.intent.json");
         var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", Path.GetTempPath()] };
         static Dictionary<string, object?> Args(params (string Key, object? Value)[] args) => args.ToDictionary(a => a.Key, a => a.Value);
         string info;
@@ -53,12 +53,9 @@ public class StdioServerTests
         }
 
         await using var second = await McpClient.CreateAsync(new StdioClientTransport(options));
-        await Datum.Core.IntentLog.ReplayAsync(Datum.Core.IntentLog.Import(await File.ReadAllTextAsync(file)), async (tool, args) =>
-        {
-            var reply = await second.CallToolAsync(tool, args.ToDictionary(a => a.Key, a => (object?)a.Value));
-            Assert.NotEqual(true, reply.IsError);
-            return TextOf(reply);
-        });
+        await second.CallToolAsync("toolset_enable", Args(("name", "intent")));
+        var ran = TextOf(await second.CallToolAsync("recipe_run", Args(("name", Path.GetFileName(file)))));
+        Assert.StartsWith("Ran datum-", ran, StringComparison.Ordinal);
         var replayed = TextOf(await second.CallToolAsync("model_info"));
         await second.CallToolAsync("doc_close", Args(("discardChanges", true)));
         File.Delete(file);

@@ -63,7 +63,7 @@ public static class DatumServer
                 Name = "datum",
                 Version = typeof(DatumServer).Assembly.GetName().Version?.ToString(3) ?? "0.0.0",
             })
-            .WithResources([typeof(LiveResources)])
+            .WithResources([typeof(LiveResources), typeof(RecipeResources)])
             .WithSubscribeToResourcesHandler((request, _) =>
             {
                 request.Services?.GetRequiredService<ResourceSubscriptions>().Add(request.Server, request.Params?.Uri ?? "");

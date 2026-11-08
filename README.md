@@ -99,17 +99,22 @@ These toolsets load on request (`toolset_enable`), and `find_tools` searches the
 |---|---|
 | `features` | `feature_revolve`, `feature_sweep`, `feature_rib`, `feature_loft`, `feature_fillet`, `feature_chamfer`, `feature_hole`, `feature_pattern` (linear or circular), `plane_create`, `axis_create`, `feature_mirror`, `feature_shell` |
 | `edit` | `sketch_edit`, `try_start`, `try_diff`, `try_end`, `model_dimensions`, `dimension_set`, `feature_suppress`, `feature_delete`, `rebuild`, `checkpoint_create`, `material_set`, `appearance_set`, `property_list`, `property_set` |
-| `check` | `model_measure`, `sketch_read`, `model_summary`, `model_flex`, `requirements_set`, `requirements_check` |
+| `check` | `model_measure`, `sketch_read`, `model_make_check` (thin walls, draft, undercuts, tight bends), `model_summary`, `model_flex`, `requirements_set`, `requirements_check` |
 | `assembly` | `component_add`, `component_list`, `component_fix`, `component_move`, `mate_add`, `mate_list`, `assembly_check` (interference, free components, mate errors, missing files), `assembly_bom`, `config_list`, `config_add`, `config_activate`, `explode_create`, `explode_show` |
 | `motion` | `motion_new`, `motion_motor`, `motion_path`, `motion_run`, `motion_export`, `motion_turntable` |
 | `drawing` | `drawing_new`, `view_add`, `view_list`, `view_set`, `view_delete`, `sheet_set`, `view_entities`, `view_section`, `view_detail`, `view_auxiliary`, `dimensions_import`, `dimension_list`, `dimension_add`, `dimension_tolerance`, `marks_add`, `note_add`, `annotation_list`, `annotation_move`, `annotation_delete`, `title_set`, `bom_add`, `bom_read`, `balloons_add`, `explode_lines`, `drawing_check` |
 | `weldment` | `weldment_profiles`, `weldment_member`, `weldment_trim`, `cut_list` |
 | `sheetmetal` | `sheet_base`, `sheet_bend`, `sheet_hem`, `sheet_flatten`, `sheet_export_flat` (DXF or DWG, with the outline size read back) |
-| `intent` | `intent_export` (this session's modelling steps as JSON) |
+| `intent` | `intent_export` (this session's modelling steps as JSON), `recipe_run` (replay a saved session) |
+| `equations` | `equation_list`, `variable_set`, `equation_set`, `equation_delete` |
+| `batch` | `batch_export` (a folder to PDF, DXF, DWG, STEP, IGES, STL or Parasolid), `batch_properties` (list or set custom properties, which title blocks show, on every file) |
+| `live` | `events_recent` (what SOLIDWORKS reported while you worked: rebuilds, saves, selections, documents opened) |
 | `diagnostics` | `sw_addins` |
 | `api` | `api_search` (find members from plain words), `run_macro` (off unless started with `--allow-macros`), `api_members` (an interface's members as signatures, read from your installed SOLIDWORKS), `invoke` (call any API member: methods, property reads and writes, `out` parameters, results as handles) |
 
 Tools that the connected SOLIDWORKS can't run (because of its version, license or add-ins) are hidden. `find_tools` says why.
+
+Resources: `datum://events` and `datum://selection` update as you work in SOLIDWORKS, for clients that subscribe. `datum://recipes` lists the saved sessions (`*.intent.json` in the Datum folder) that `recipe_run` replays, and `datum://recipes/{name}` shows one's steps.
 
 Conventions:
 - Lengths are in mm and angles in degrees.
