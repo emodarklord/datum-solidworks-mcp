@@ -29,7 +29,13 @@ public static class DatumServer
         options ??= new DatumOptions();
         services.AddSingleton(options);
         services.AddSingleton(options.Workspace ?? Workspace.Create([], Environment.GetEnvironmentVariable("DATUM_ALLOW")));
-        services.AddSingleton(_ => new SolidWorksConnection(backendFactory, CallTimeout));
+        services.AddSingleton<ResourceSubscriptions>();
+        services.AddSingleton(provider =>
+        {
+            var connection = new SolidWorksConnection(backendFactory, CallTimeout);
+            connection.Events.Added += provider.GetRequiredService<ResourceSubscriptions>().Notify;
+            return connection;
+        });
         services.AddSingleton(provider =>
         {
             var catalog = new ToolCatalog(options.AllTools);
@@ -45,9 +51,21 @@ public static class DatumServer
                 Name = "datum",
                 Version = typeof(DatumServer).Assembly.GetName().Version?.ToString(3) ?? "0.0.0",
             })
+            .WithResources([typeof(LiveResources)])
+            .WithSubscribeToResourcesHandler((request, _) =>
+            {
+                request.Services?.GetRequiredService<ResourceSubscriptions>().Add(request.Server, request.Params?.Uri ?? "");
+                return ValueTask.FromResult(new EmptyResult());
+            })
+            .WithUnsubscribeFromResourcesHandler((request, _) =>
+            {
+                request.Services?.GetRequiredService<ResourceSubscriptions>().Remove(request.Server, request.Params?.Uri ?? "");
+                return ValueTask.FromResult(new EmptyResult());
+            })
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, cancellationToken) =>
             {
                 var tool = context.Params?.Name ?? "";
+                context.Services?.GetRequiredService<ResourceSubscriptions>().Seen(context.Server);
                 var connection = context.Services?.GetRequiredService<SolidWorksConnection>();
                 var loose = IntentLog.Records(tool) ? IntentLog.LooseHandles(System.Text.Json.JsonSerializer.Serialize(context.Params?.Arguments)) : [];
                 var refs = connection is not null && loose.Count > 0 ? await InspectionTools.DescribeAsync(connection, loose, cancellationToken).ConfigureAwait(false) : [];

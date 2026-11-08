@@ -65,6 +65,60 @@ public class StdioServerTests
     }
 
     [Fact]
+    public async Task AnOlderClientSubscribesAndHearsAboutEvents()
+    {
+        var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", Path.GetTempPath()] };
+        await using var client = await McpClient.CreateAsync(new StdioClientTransport(options), new McpClientOptions { ProtocolVersion = "2025-11-25" });
+        var heard = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await client.CallToolAsync("sw_status");
+        await client.SubscribeToResourceAsync("datum://events", (notice, _) =>
+        {
+            heard.TrySetResult(notice.Uri);
+            return ValueTask.CompletedTask;
+        });
+
+        await client.CallToolAsync("doc_new", new Dictionary<string, object?> { ["type"] = "part" });
+        var uri = await heard.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        var events = await client.ReadResourceAsync("datum://events");
+        await client.CallToolAsync("doc_close", new Dictionary<string, object?> { ["discardChanges"] = true });
+
+        Assert.Equal("datum://events", uri);
+        Assert.Contains(" new ", Assert.IsType<TextResourceContents>(events.Contents[0]).Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AListeningClientHearsAboutEvents()
+    {
+        var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", Path.GetTempPath()] };
+        await using var client = await McpClient.CreateAsync(new StdioClientTransport(options));
+        var heard = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var handler = client.RegisterNotificationHandler(NotificationMethods.ResourceUpdatedNotification, (notice, _) =>
+        {
+            if (notice.Params?.ToString().Contains("datum://events", StringComparison.Ordinal) == true)
+            {
+                heard.TrySetResult(notice.Params.ToString());
+            }
+
+            return ValueTask.CompletedTask;
+        });
+        await client.CallToolAsync("sw_status");
+        using var stop = new CancellationTokenSource();
+        var listening = client.SendRequestAsync<SubscriptionsListenRequestParams, EmptyResult>(
+            RequestMethods.SubscriptionsListen,
+            new SubscriptionsListenRequestParams { Notifications = new SubscriptionsListenNotifications { ResourceSubscriptions = ["datum://events"] } },
+            cancellationToken: stop.Token);
+        await Task.Delay(1000);
+
+        await client.CallToolAsync("doc_new", new Dictionary<string, object?> { ["type"] = "part" });
+        var notice = await heard.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await client.CallToolAsync("doc_close", new Dictionary<string, object?> { ["discardChanges"] = true });
+        await stop.CancelAsync();
+        _ = await Task.WhenAny(listening.AsTask(), Task.Delay(2000));
+
+        Assert.Contains("datum://events", notice, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ListsAddInGuidsThroughTheDiagnosticsToolset()
     {
         await using var client = await McpClient.CreateAsync(
