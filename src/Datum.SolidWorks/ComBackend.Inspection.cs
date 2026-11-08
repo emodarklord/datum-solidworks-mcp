@@ -160,15 +160,20 @@ public sealed partial class ComBackend
         return type.EndsWith("Folder", StringComparison.Ordinal) || type is "DetailCabinet" or "Attribute" or "MateGroup";
     }
 
+    private static SurfaceKind SurfaceOf(IFace2 face) => (ISurface)face.GetSurface() switch
+    {
+        var s when s.IsPlane() => SurfaceKind.Plane,
+        var s when s.IsCylinder() => SurfaceKind.Cylinder,
+        var s when s.IsCone() => SurfaceKind.Cone,
+        var s when s.IsSphere() => SurfaceKind.Sphere,
+        var s when s.IsTorus() => SurfaceKind.Torus,
+        _ => SurfaceKind.Other,
+    };
+
     private FaceInfo DescribeFace(string id, IModelDoc2 document, IFace2 face)
     {
         var surface = (ISurface)face.GetSurface();
-        var kind = surface.IsPlane() ? SurfaceKind.Plane
-            : surface.IsCylinder() ? SurfaceKind.Cylinder
-            : surface.IsCone() ? SurfaceKind.Cone
-            : surface.IsSphere() ? SurfaceKind.Sphere
-            : surface.IsTorus() ? SurfaceKind.Torus
-            : SurfaceKind.Other;
+        var kind = SurfaceOf(face);
         var box = face.GetBox() as double[] ?? [0, 0, 0, 0, 0, 0];
         Point3? normal = kind == SurfaceKind.Plane && face.Normal is double[] { Length: 3 } n ? new Point3(n[0], n[1], n[2]) : null;
         double? radius = kind == SurfaceKind.Cylinder && surface.CylinderParams is double[] { Length: >= 7 } c ? c[6] * Mm : null;

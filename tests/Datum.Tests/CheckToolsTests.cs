@@ -236,6 +236,31 @@ public sealed class CheckToolsTests : IDisposable
         Assert.Equal(["Suppressed: Base plate", "2 solid bodies; check that's intended"], review.Notes);
     }
 
+    [Fact]
+    public async Task MakeCheckReportsTheThinnestWallAndItsProblems()
+    {
+        await Part();
+        _backend.GeometryOf(_part).Probes.AddRange(
+        [
+            new FaceProbe("face#1", SurfaceKind.Plane, default, new Point3(0, 0, 1), 10, false),
+            new FaceProbe("face#2", SurfaceKind.Plane, default, new Point3(1, 0, 0), 0.5, false),
+        ]);
+
+        var report = Ok(await CheckTools.MakeCheck(_connection, "molding"));
+
+        Assert.StartsWith("Part1 for molding: 2 faces, thinnest wall 0.5 mm\nProblems (2):\n", report, StringComparison.Ordinal);
+        Assert.Contains("- face#2: wall 0.5 mm, under 1 mm\n", report, StringComparison.Ordinal);
+        Assert.Contains("- face#2: draft 0.0°, under 1°\n", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MakeCheckRefusesSheetMetalOnAPlainPart()
+    {
+        await Part();
+
+        Assert.StartsWith("INVALID_ARGUMENT: Part1 isn't sheet metal", Error(await CheckTools.MakeCheck(_connection, "sheetmetal")), StringComparison.Ordinal);
+    }
+
     private async Task Part()
     {
         Ok(await DocumentTools.New(_connection, _workspace, "part"));

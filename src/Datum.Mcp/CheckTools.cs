@@ -15,6 +15,9 @@ public static class CheckTools
     private static readonly TimeSpan ReadTimeout = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan FlexTimeout = TimeSpan.FromMinutes(5);
     private const double DefaultFlexPercent = 10;
+    private const int MakeProblemsShown = 15;
+
+    private static readonly TimeSpan CheckTimeout = TimeSpan.FromMinutes(2);
 
     [Toolset(Toolset)]
     [McpServerTool(Name = "model_measure", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
@@ -70,6 +73,53 @@ public static class CheckTools
                 }
 
                 return report.ToString();
+            },
+            cancellationToken));
+
+    [Toolset(Toolset)]
+    [McpServerTool(Name = "model_make_check", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
+    [Description("Check a part can be made: walls thinner than min_wall for any process; for molding, faces with less draft than min_draft against the pull direction and undercuts; for sheet metal, bends tighter than the sheet thickness. Walls are measured by rays from each face, so a very curved part can be missed.")]
+    public static Task<CallToolResult> MakeCheck(
+        SolidWorksConnection solidWorks,
+        [Description("machining, molding or sheetmetal")] string process = "machining",
+        [Description("Mould pull direction, e.g. +z")] string pull = "+z",
+        [Description("Thinnest wall allowed in mm")] double minWall = 1,
+        [Description("Least draft allowed in degrees, for molding")] double minDraft = 1,
+        [Description("Document id, title or path; defaults to the active document")] string? doc = null,
+        CancellationToken cancellationToken = default) =>
+        ToolErrors.Run(() => solidWorks.UseAsync(
+            async client =>
+            {
+                var limits = new MakeLimits(process.Trim().ToLowerInvariant(), EntityQuery.ParseDirection(pull), minWall, minDraft);
+                Manufacturability.Validate(limits);
+                var target = await DocumentTools.ResolveAsync(client, doc, cancellationToken).ConfigureAwait(false);
+                if (target.Type != DocumentType.Part)
+                {
+                    throw new DatumException(ErrorCode.InvalidArgument, $"{target.Id} is not a part", "Check each part on its own");
+                }
+
+                var faces = await client.RunAsync(b => b.ProbeFaces(target.Id, limits.Pull), CheckTimeout, cancellationToken).ConfigureAwait(false);
+                var sheet = limits.Process == "sheetmetal" ? await client.RunAsync(b => b.ReadSheetBends(target.Id), CheckTimeout, cancellationToken).ConfigureAwait(false) : null;
+                if (limits.Process == "sheetmetal" && sheet is null)
+                {
+                    throw new DatumException(ErrorCode.InvalidArgument, $"{target.Title} isn't sheet metal", "Use machining or molding, or build it with sheet_base");
+                }
+
+                var problems = Manufacturability.Find(faces, sheet, limits);
+                var thinnest = faces.Where(f => f.ThicknessMm is not null).Select(f => f.ThicknessMm!.Value).DefaultIfEmpty().Min();
+                var report = new StringBuilder($"{target.Title} for {limits.Process}: {faces.Count} faces, thinnest wall {Numbers.Format(thinnest)} mm\n");
+                report.Append(problems.Count == 0 ? "No problems found\n" : $"Problems ({problems.Count}):\n");
+                foreach (var problem in problems.Take(MakeProblemsShown))
+                {
+                    report.Append(CultureInfo.InvariantCulture, $"- {problem}\n");
+                }
+
+                if (problems.Count > MakeProblemsShown)
+                {
+                    report.Append(CultureInfo.InvariantCulture, $"and {problems.Count - MakeProblemsShown} more\n");
+                }
+
+                return report.Append("Passing these checks doesn't mean the part is easy or cheap to make.\n").ToString();
             },
             cancellationToken));
 

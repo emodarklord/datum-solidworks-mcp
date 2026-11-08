@@ -275,6 +275,12 @@ public interface ISolidWorksBackend : IDisposable
 
     void DeleteEquation(string id, string left);
 
+    // Every face of a part with a point on it, its outward normal, its wall thickness and whether it can be pulled along pull.
+    IReadOnlyList<FaceProbe> ProbeFaces(string id, Point3 pull);
+
+    // null for a part that isn't sheet metal.
+    SheetBends? ReadSheetBends(string id);
+
     // Calls a member through COM late binding. A call that might change the model throws NOT_ALLOWED or
     // NOT_OWNED unless writes is Allowed, and then reports the change.
     ApiResult Invoke(string? id, ApiCall request, GatewayWrites writes);
