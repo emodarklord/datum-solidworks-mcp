@@ -221,6 +221,16 @@ public sealed class FakeBackend : ISolidWorksBackend
 
     public void RunMacro(string path, string moduleName, string procedure) => Enter();
 
+    private Action<SolidWorksEvent>? _sink;
+
+    public void Subscribe(Action<SolidWorksEvent> sink)
+    {
+        Enter();
+        _sink = sink;
+    }
+
+    public void Raise(string kind, string document, string? detail = null) => _sink?.Invoke(new SolidWorksEvent(DateTimeOffset.Now, kind, document, detail));
+
     public IReadOnlyList<ApiEntry> ApiEntries()
     {
         Enter();

@@ -265,6 +265,9 @@ public interface ISolidWorksBackend : IDisposable
 
     void RunMacro(string path, string moduleName, string procedure);
 
+    // sink is called on the STA thread for each event SOLIDWORKS raises while the user works.
+    void Subscribe(Action<SolidWorksEvent> sink);
+
     // Calls a member through COM late binding. A call that might change the model throws NOT_ALLOWED or
     // NOT_OWNED unless writes is Allowed, and then reports the change.
     ApiResult Invoke(string? id, ApiCall request, GatewayWrites writes);

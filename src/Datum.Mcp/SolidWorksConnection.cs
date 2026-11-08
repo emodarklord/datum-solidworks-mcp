@@ -18,6 +18,9 @@ public sealed class SolidWorksConnection(Func<ISolidWorksBackend> backendFactory
     // Every modelling step of this session, in CAD-neutral form.
     public IntentLog Intent { get; } = new();
 
+    // What SOLIDWORKS reported while the user worked; it carries on across reconnects.
+    public EventLog Events { get; } = new();
+
     // null when SOLIDWORKS goes away.
     public event Action<SolidWorksCapabilities?>? CapabilitiesChanged;
 
@@ -58,6 +61,7 @@ public sealed class SolidWorksConnection(Func<ISolidWorksBackend> backendFactory
             try
             {
                 var info = await client.ReadInfoAsync(cancellationToken).ConfigureAwait(false);
+                await client.RunAsync(b => { b.Subscribe(Events.Add); return true; }, cancellationToken: cancellationToken).ConfigureAwait(false);
                 _client = client;
                 Refresh(info);
                 return client;

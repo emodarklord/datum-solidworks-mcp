@@ -119,6 +119,7 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
                 + "edit (14): sketch_edit, try_start, try_diff, try_end, checkpoint_create, model_dimensions, dimension_set, feature_suppress, feature_delete, rebuild, material_set, appearance_set, property_list, property_set\n"
                 + "features (12): feature_revolve, feature_sweep, feature_rib, feature_loft, feature_fillet, feature_chamfer, feature_hole, feature_pattern, plane_create, axis_create, feature_mirror, feature_shell\n"
                 + "intent (1): intent_export\n"
+                + "live (1): events_recent\n"
                 + "motion (6): motion_new, motion_motor, motion_path, motion_run, motion_export, motion_turntable\n" + "sheetmetal (5): sheet_base, sheet_bend, sheet_hem, sheet_flatten, sheet_export_flat\n"
                 + "weldment (4): weldment_profiles, weldment_member, weldment_trim, cut_list\n",
             StatusToolsTests.TextOf(result));
@@ -130,7 +131,7 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
         var result = await _client!.CallToolAsync("toolset_enable", new Dictionary<string, object?> { ["name"] = "nope" });
 
         Assert.True(result.IsError);
-        Assert.Equal("INVALID_ARGUMENT: no toolset 'nope'. Hint: known toolsets: api, assembly, check, diagnostics, drawing, edit, features, intent, motion, sheetmetal, weldment", StatusToolsTests.TextOf(result));
+        Assert.Equal("INVALID_ARGUMENT: no toolset 'nope'. Hint: known toolsets: api, assembly, check, diagnostics, drawing, edit, features, intent, live, motion, sheetmetal, weldment", StatusToolsTests.TextOf(result));
     }
 
     [Fact]
