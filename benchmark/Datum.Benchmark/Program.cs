@@ -30,12 +30,22 @@ if (Option("--mcp-config") is null)
 var server = JsonDocument.Parse(await File.ReadAllTextAsync(config)).RootElement.GetProperty("mcpServers").EnumerateObject().Single().Name;
 var parts = Path.GetFullPath(Option("--parts") ?? output);
 
-var results = new List<BenchmarkResult>();
+// Rerunning some tasks keeps the other tasks' earlier results.
+var saved = Path.Combine(output, "results.json");
+var results = File.Exists(saved)
+    ? JsonSerializer.Deserialize<List<BenchmarkResult>>(await File.ReadAllTextAsync(saved), JsonSerializerOptions.Web)!.Where(r => !tasks.Any(t => t.Id == r.Task)).ToList()
+    : [];
 foreach (var task in tasks)
 {
     var part = Path.Combine(parts, $"{task.Id}.SLDPRT");
     var started = DateTime.Now;
     var (seconds, turns, tokens, cost) = mode == "run" ? await RunAsync(task, part) : Timed(task);
+    if (mode == "run" && File.ReadAllText(Path.Combine(output, $"{task.Id}.json")).Contains("hit your", StringComparison.Ordinal))
+    {
+        Console.WriteLine($"{task.Id}: stopped, the Claude usage limit was reached; rerun from this task with --task");
+        break;
+    }
+
     var (passed, reason) = BenchmarkScore.Check(task, await MeasureAsync(mode == "run" ? Saved(task, part, started) : part));
     var result = new BenchmarkResult(task.Id, task.Level, model, passed, reason, seconds, turns, tokens, cost);
     results.Add(result);
@@ -45,7 +55,7 @@ foreach (var task in tasks)
         await CloseAllAsync();
     }
 
-    await File.WriteAllTextAsync(Path.Combine(output, "results.json"), JsonSerializer.Serialize(results, JsonSerializerOptions.Web));
+    await File.WriteAllTextAsync(saved, JsonSerializer.Serialize(results, JsonSerializerOptions.Web));
 }
 
 await File.WriteAllTextAsync(Path.Combine(output, "results.md"), BenchmarkScore.Table(results));
