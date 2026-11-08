@@ -158,7 +158,7 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
                 + "edit (14): sketch_edit, try_start, try_diff, try_end, checkpoint_create, model_dimensions, dimension_set, feature_suppress, feature_delete, rebuild, material_set, appearance_set, property_list, property_set\n"
                 + "equations (4): equation_list, variable_set, equation_set, equation_delete\n"
                 + "features (12): feature_revolve, feature_sweep, feature_rib, feature_loft, feature_fillet, feature_chamfer, feature_hole, feature_pattern, plane_create, axis_create, feature_mirror, feature_shell\n"
-                + "intent (2): intent_export, recipe_run\n"
+                + "intent (4): teach_start, teach_stop, intent_export, recipe_run\n"
                 + "live (1): events_recent\n"
                 + "motion (6): motion_new, motion_motor, motion_path, motion_run, motion_export, motion_turntable\n" + "sheetmetal (5): sheet_base, sheet_bend, sheet_hem, sheet_flatten, sheet_export_flat\n"
                 + "weldment (4): weldment_profiles, weldment_member, weldment_trim, cut_list\n",

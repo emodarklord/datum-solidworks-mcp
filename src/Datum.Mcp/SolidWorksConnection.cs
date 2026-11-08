@@ -18,6 +18,9 @@ public sealed class SolidWorksConnection(Func<ISolidWorksBackend> backendFactory
     // Every modelling step of this session, in CAD-neutral form.
     public IntentLog Intent { get; } = new();
 
+    // For each document being taught, the features it had when teach_start was called.
+    public Dictionary<string, TeachingStart> Teaching { get; } = [];
+
     // What SOLIDWORKS reported while the user worked; it carries on across reconnects.
     public EventLog Events { get; } = new();
 

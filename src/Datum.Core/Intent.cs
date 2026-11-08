@@ -29,7 +29,9 @@ public sealed partial class IntentLog
 
     public static IReadOnlyList<string> LooseHandles(string text) => [.. LooseHandle().Matches(text).Select(m => m.Value).Distinct()];
 
-    public string Export() => JsonSerializer.Serialize(new { version = 0, steps = _steps }, JsonSerializerOptions.Web);
+    public string Export() => Export(_steps);
+
+    public static string Export(IEnumerable<IntentStep> steps) => JsonSerializer.Serialize(new { version = 0, steps }, JsonSerializerOptions.Web);
 
     public static IReadOnlyList<IntentStep> Import(string json)
     {

@@ -281,6 +281,9 @@ public interface ISolidWorksBackend : IDisposable
     // null for a part that isn't sheet metal.
     SheetBends? ReadSheetBends(string id);
 
+    // The given features as the tool calls that would make them again, for teach_stop.
+    Lesson ReadLesson(string id, IReadOnlyList<string> features);
+
     // Calls a member through COM late binding. A call that might change the model throws NOT_ALLOWED or
     // NOT_OWNED unless writes is Allowed, and then reports the change.
     ApiResult Invoke(string? id, ApiCall request, GatewayWrites writes);

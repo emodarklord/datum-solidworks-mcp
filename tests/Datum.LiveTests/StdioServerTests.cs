@@ -64,6 +64,103 @@ public class StdioServerTests
     }
 
     [Fact]
+    public async Task FeaturesMadeWhileTeachingReplayToTheSamePart()
+    {
+        var folder = Directory.CreateTempSubdirectory("datum-teach-").FullName;
+        var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", folder] };
+        static Dictionary<string, object?> Args(params (string Key, object? Value)[] args) => args.ToDictionary(a => a.Key, a => a.Value);
+        string info;
+        string taught;
+        await using (var first = await McpClient.CreateAsync(new StdioClientTransport(options)))
+        {
+            async Task<string> Call(string tool, Dictionary<string, object?>? args = null)
+            {
+                var reply = await first.CallToolAsync(tool, args);
+                Assert.True(reply.IsError != true, $"{tool}: {TextOf(reply)}");
+                return TextOf(reply);
+            }
+
+            static string Feat(string reply) => System.Text.RegularExpressions.Regex.Match(reply, @"feat#\d+").Value;
+            await Call("toolset_enable", Args(("name", "intent")));
+            await Call("toolset_enable", Args(("name", "features")));
+            await Call("doc_new", Args(("type", "part")));
+            await Call("teach_start");
+            await Call("sketch_begin", Args(("on", "Front")));
+            await Call("sketch_add", Args(("entities", new object[] { new Dictionary<string, object?> { ["type"] = "center_rect", ["cx"] = 0, ["cy"] = 0, ["width"] = 60, ["height"] = 40 } })));
+            await Call("feature_extrude", Args(("sketch", Feat(await Call("sketch_end"))), ("depth", 10)));
+            var top = (await Call("model_faces", Args(("normal", "+z"), ("limit", 1)))).Split(' ')[0];
+            await Call("sketch_begin", Args(("on", top)));
+            await Call("sketch_add", Args(("entities", new object[]
+            {
+                new Dictionary<string, object?> { ["type"] = "line", ["x1"] = -10, ["y1"] = 0, ["x2"] = 10, ["y2"] = 0 },
+                new Dictionary<string, object?> { ["type"] = "arc", ["x1"] = 10, ["y1"] = 0, ["x2"] = -10, ["y2"] = 0, ["x3"] = 0, ["y3"] = 10 },
+            })));
+            await Call("feature_extrude", Args(("sketch", Feat(await Call("sketch_end"))), ("depth", 6)));
+            await Call("sketch_begin", Args(("on", "Front")));
+            await Call("sketch_add", Args(("entities", new object[] { new Dictionary<string, object?> { ["type"] = "circle", ["cx"] = 20, ["cy"] = -10, ["radius"] = 4 } })));
+            await Call("feature_extrude", Args(("sketch", Feat(await Call("sketch_end"))), ("cut", true), ("end", "through_all")));
+            var edge = (await Call("model_faces", Args(("kind", "edge"), ("direction", "z"), ("limit", 1)))).Split(' ')[0];
+            await Call("feature_fillet", Args(("edges", new[] { edge }), ("radius", 3)));
+            info = await Call("model_info");
+            taught = await Call("teach_stop", Args(("name", "lesson")));
+            await Call("doc_close", Args(("discardChanges", true)));
+        }
+
+        await using var second = await McpClient.CreateAsync(new StdioClientTransport(options));
+        await second.CallToolAsync("toolset_enable", Args(("name", "intent")));
+        var ran = TextOf(await second.CallToolAsync("recipe_run", Args(("name", "lesson"))));
+        var replayed = TextOf(await second.CallToolAsync("model_info"));
+        await second.CallToolAsync("doc_close", Args(("discardChanges", true)));
+        Directory.Delete(folder, recursive: true);
+        Console.WriteLine($"{taught}{ran}\n{info}{replayed}");
+
+        Assert.StartsWith("Wrote 14 steps", taught, StringComparison.Ordinal);
+        Assert.DoesNotContain("Couldn't learn", taught, StringComparison.Ordinal);
+        Assert.StartsWith("Ran lesson: 14 steps", ran, StringComparison.Ordinal);
+        Assert.Equal(info[(info.IndexOf('\n', StringComparison.Ordinal) + 1)..], replayed[(replayed.IndexOf('\n', StringComparison.Ordinal) + 1)..]);
+    }
+
+    [Fact]
+    public async Task ATaughtRevolveReplays()
+    {
+        var folder = Directory.CreateTempSubdirectory("datum-teach-").FullName;
+        var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", folder] };
+        static Dictionary<string, object?> Args(params (string Key, object? Value)[] args) => args.ToDictionary(a => a.Key, a => a.Value);
+        string info;
+        string taught;
+        await using (var first = await McpClient.CreateAsync(new StdioClientTransport(options)))
+        {
+            await first.CallToolAsync("toolset_enable", Args(("name", "intent")));
+            await first.CallToolAsync("toolset_enable", Args(("name", "features")));
+            await first.CallToolAsync("doc_new", Args(("type", "part")));
+            await first.CallToolAsync("teach_start");
+            await first.CallToolAsync("sketch_begin", Args(("on", "Front")));
+            await first.CallToolAsync("sketch_add", Args(("entities", new object[]
+            {
+                new Dictionary<string, object?> { ["type"] = "polyline", ["closed"] = true, ["points"] = new[] { new[] { 0.0, 0 }, new[] { 30.0, 0 }, new[] { 15.0, 50 }, new[] { 0.0, 50 } } },
+                new Dictionary<string, object?> { ["type"] = "centerline", ["x1"] = 0, ["y1"] = -10, ["x2"] = 0, ["y2"] = 60 },
+            })));
+            var sketch = System.Text.RegularExpressions.Regex.Match(TextOf(await first.CallToolAsync("sketch_end")), @"feat#\d+").Value;
+            Assert.NotEqual(true, (await first.CallToolAsync("feature_revolve", Args(("sketch", sketch), ("angle", 270)))).IsError);
+            info = TextOf(await first.CallToolAsync("model_info"));
+            taught = TextOf(await first.CallToolAsync("teach_stop", Args(("name", "frustum"))));
+            await first.CallToolAsync("doc_close", Args(("discardChanges", true)));
+        }
+
+        await using var second = await McpClient.CreateAsync(new StdioClientTransport(options));
+        await second.CallToolAsync("toolset_enable", Args(("name", "intent")));
+        var ran = TextOf(await second.CallToolAsync("recipe_run", Args(("name", "frustum"))));
+        var replayed = TextOf(await second.CallToolAsync("model_info"));
+        await second.CallToolAsync("doc_close", Args(("discardChanges", true)));
+        Directory.Delete(folder, recursive: true);
+        Console.WriteLine($"{taught}{ran}\n{info}{replayed}");
+
+        Assert.StartsWith("Wrote 5 steps", taught, StringComparison.Ordinal);
+        Assert.StartsWith("Ran frustum: 5 steps", ran, StringComparison.Ordinal);
+        Assert.Equal(info[(info.IndexOf('\n', StringComparison.Ordinal) + 1)..], replayed[(replayed.IndexOf('\n', StringComparison.Ordinal) + 1)..]);
+    }
+
+    [Fact]
     public async Task AnOlderClientSubscribesAndHearsAboutEvents()
     {
         var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", Path.GetTempPath()] };

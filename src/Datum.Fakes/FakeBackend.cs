@@ -266,6 +266,13 @@ public sealed class FakeBackend : ISolidWorksBackend
         return GeometryOf(id).Bends;
     }
 
+    public Lesson ReadLesson(string id, IReadOnlyList<string> features)
+    {
+        Enter();
+        var lesson = GeometryOf(id).Lesson;
+        return lesson with { Steps = [.. lesson.Steps.Where(s => s.Made is null || features.Contains(s.Made))] };
+    }
+
     public void Raise(string kind, string document, string? detail = null) => _sink?.Invoke(new SolidWorksEvent(DateTimeOffset.Now, kind, document, detail));
 
     public IReadOnlyList<ApiEntry> ApiEntries()
@@ -1262,6 +1269,8 @@ public sealed class FakeGeometry
     public List<FaceProbe> Probes { get; } = [];
 
     public SheetBends? Bends { get; set; }
+
+    public Lesson Lesson { get; set; } = new([], [], [], []);
 
     public List<ComponentMoved> NextMateMoves { get; set; } = [];
 

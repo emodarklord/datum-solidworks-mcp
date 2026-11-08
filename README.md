@@ -105,7 +105,7 @@ These toolsets load on request (`toolset_enable`), and `find_tools` searches the
 | `drawing` | `drawing_new`, `view_add`, `view_list`, `view_set`, `view_delete`, `sheet_set`, `view_entities`, `view_section`, `view_detail`, `view_auxiliary`, `dimensions_import`, `dimension_list`, `dimension_add`, `dimension_tolerance`, `marks_add`, `note_add`, `annotation_list`, `annotation_move`, `annotation_delete`, `title_set`, `bom_add`, `bom_read`, `balloons_add`, `explode_lines`, `drawing_check` |
 | `weldment` | `weldment_profiles`, `weldment_member`, `weldment_trim`, `cut_list` |
 | `sheetmetal` | `sheet_base`, `sheet_bend`, `sheet_hem`, `sheet_flatten`, `sheet_export_flat` (DXF or DWG, with the outline size read back) |
-| `intent` | `intent_export` (this session's modelling steps as JSON), `recipe_run` (replay a saved session) |
+| `intent` | `teach_start` and `teach_stop` (turn sketches, extrudes, cuts, revolves and fillets you make by hand into a recipe), `intent_export` (this session's modelling steps as JSON), `recipe_run` (replay a saved session or taught recipe) |
 | `equations` | `equation_list`, `variable_set`, `equation_set`, `equation_delete` |
 | `batch` | `batch_export` (a folder to PDF, DXF, DWG, STEP, IGES, STL or Parasolid), `batch_properties` (list or set custom properties, which title blocks show, on every file) |
 | `live` | `events_recent` (what SOLIDWORKS reported while you worked: rebuilds, saves, selections, documents opened) |
