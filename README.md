@@ -123,7 +123,17 @@ Conventions:
 
 ## Benchmark
 
-Three Claude models each built 30 parts through Datum alone, and all 30 passed for all three. A part passes on its volume, box and body count, measured from the saved file against answers worked out by hand. The parts are single solids with one clear answer, so this shows the tools work, not that any model is better. Method and caveats are in [benchmark/results.md](benchmark/results.md).
+Three Claude models each built 30 parts through Datum alone, and all 30 passed for all three. A part passes on its volume, box and body count, measured from the saved file against answers worked out by hand. The parts are single solids with one clear answer, so this shows the tools work, not that any model is better.
+
+The same 30 tasks were then run through two other SOLIDWORKS MCP servers, one fresh Sonnet session per part:
+
+| Server | Passed | Median time per part | Median tokens per part |
+|---|---|---|---|
+| Datum 0.5.0 | 30/30 | 29 s | 356k |
+| andrewbartels1/SolidworksMCP-python | 30/30 | 65 s | 631k |
+| chrisncm17/solidworks-mcp | 22/30 | 112 s | 1.15M |
+
+Method, setup and caveats, including why chrisncm17's misses happened, are in [benchmark/results.md](benchmark/results.md).
 
 ## How well tested each part is
 
