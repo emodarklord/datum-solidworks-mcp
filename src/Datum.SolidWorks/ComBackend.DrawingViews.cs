@@ -401,6 +401,7 @@ public sealed partial class ComBackend
         };
         return new SheetAnnotation(text, at[0] * Mm, at[1] * Mm, annotation.IsDangling(), TextBox(annotation, specific), NameOf(annotation), view)
         {
+            Lines = specific is IDisplayDimension ? LinesOf(annotation) : [],
             Shows = specific switch
             {
                 IDisplayDimension shown => ValueOf(shown.GetDimension2(0)),
@@ -417,6 +418,11 @@ public sealed partial class ComBackend
     }
 
     // A note knows its extent. A dimension's text is only known from what SOLIDWORKS drew: each string's corner and size.
+    private static List<SheetSegment> LinesOf(IAnnotation annotation) =>
+        annotation.GetDisplayData() is IDisplayData drawn
+            ? [.. Enumerable.Range(0, drawn.GetLineCount()).Select(index => drawn.GetLineAtIndex3(index) as double[]).OfType<double[]>().Where(line => line.Length >= 6).Select(line => new SheetSegment(line[0] * Mm, line[1] * Mm, line[3] * Mm, line[4] * Mm))]
+            : [];
+
     private static SheetBox? TextBox(IAnnotation annotation, object specific)
     {
         if (specific is INote { } balloon && balloon.IsBomBalloon() && annotation.GetPosition() is double[] { Length: >= 2 } centre)

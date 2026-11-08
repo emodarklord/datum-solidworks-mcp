@@ -185,6 +185,28 @@ public sealed class SheetLayoutTests
     }
 
     [Fact]
+    public void TextMovesOffAnotherDimensionsLine()
+    {
+        var border = new SheetBox(0, 0, 280, 210);
+        SheetAnnotation[] text =
+        [
+            new("D1", 50, 50, false, new SheetBox(45, 48, 55, 52), "D1"),
+            new("D2", 100, 100, false, new SheetBox(95, 98, 105, 102), "D2") { Lines = [new SheetSegment(40, 50, 60, 50)] },
+        ];
+
+        Assert.Equal("D1", Assert.Single(TextPlacement.Tidy(text, [], border)).Name);
+    }
+
+    [Theory]
+    [InlineData(0, 5, 20, 5, true)]
+    [InlineData(0, 20, 20, 20, false)]
+    [InlineData(5, 5, 6, 6, true)]
+    public void ALineCrossesABoxWhenAnyPartIsInside(double x1, double y1, double x2, double y2, bool crossed)
+    {
+        Assert.Equal(crossed, new SheetBox(2, 2, 10, 10).Crossed(new SheetSegment(x1, y1, x2, y2)));
+    }
+
+    [Fact]
     public void TextIsKeptInsideTheBorder()
     {
         var border = new SheetBox(10, 10, 100, 100);

@@ -257,14 +257,16 @@ public static class TextPlacement
     private const int SearchRings = 24;
 
     // Moves each piece of text that's in the way to the nearest clear spot. Text that's already clear stays put.
-    public static IReadOnlyList<TextMove> Tidy(IReadOnlyList<SheetAnnotation> text, IReadOnlyList<SheetBox> keepOut, SheetBox border)
+    // lines are other text's dimension and extension lines, beyond those of text itself.
+    public static IReadOnlyList<TextMove> Tidy(IReadOnlyList<SheetAnnotation> text, IReadOnlyList<SheetBox> keepOut, SheetBox border, IReadOnlyList<SheetSegment>? lines = null)
     {
         var placed = new List<SheetBox>(keepOut);
         var moves = new List<TextMove>();
         foreach (var item in text.Where(t => t.Box is not null && t.Name is not null))
         {
             var box = item.Box!.Value;
-            if (Clear(box, placed, border))
+            List<SheetSegment> foreign = [.. lines ?? [], .. text.Where(other => other != item).SelectMany(other => other.Lines)];
+            if (Clear(box, placed, border, foreign))
             {
                 placed.Add(box);
                 continue;
@@ -273,7 +275,7 @@ public static class TextPlacement
             foreach (var (dx, dy) in Offsets())
             {
                 var moved = new SheetBox(box.Left + dx, box.Bottom + dy, box.Right + dx, box.Top + dy);
-                if (Clear(moved, placed, border))
+                if (Clear(moved, placed, border, foreign))
                 {
                     moves.Add(new TextMove(item.Name!, item.X + dx, item.Y + dy));
                     placed.Add(moved);
@@ -299,8 +301,8 @@ public static class TextPlacement
         ];
     }
 
-    private static bool Clear(SheetBox box, List<SheetBox> others, SheetBox border) =>
-        box.Within(border) && !others.Any(other => box.Inset(-Clearance).Overlaps(other));
+    private static bool Clear(SheetBox box, List<SheetBox> others, SheetBox border, List<SheetSegment> lines) =>
+        box.Within(border) && !others.Any(other => box.Inset(-Clearance).Overlaps(other)) && !lines.Any(box.Crossed);
 
     private static IEnumerable<(double X, double Y)> Offsets()
     {

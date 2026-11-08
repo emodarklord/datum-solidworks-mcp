@@ -192,6 +192,16 @@ public sealed class DrawingAuditTests
     }
 
     [Fact]
+    public void TextWithAnotherDimensionsLineThroughItIsAProblem()
+    {
+        var crossed = new SheetAnnotation("RD1", 50, 50, false, new SheetBox(45, 48, 55, 52), "RD1");
+        var crossing = new SheetAnnotation("RD2", 90, 90, false, new SheetBox(85, 88, 95, 92), "RD2") { Lines = [new SheetSegment(40, 50, 60, 50)] };
+        var facts = Facts([View() with { Annotations = [crossed, crossing] }]);
+
+        Assert.Contains("'RD1' has a line of 'RD2' through it", DrawingAudit.Find(facts));
+    }
+
+    [Fact]
     public void SkippedChecksAreLeftOutAndSaidToBe()
     {
         var facts = Facts([View(missingMarks: 2)]) with { ModelDimensions = [new ModelDimension("D1@Sweep1", 25.4, " mm")] };
@@ -312,7 +322,7 @@ public sealed class DrawingAuditTests
         var facts = Facts([View()]) with { ModelDimensions = [new ModelDimension("D1@A", 1, " mm"), new ModelDimension("D2@A", 2, " mm")], Shown = [new SheetDimension("view#1", "D1@A", 1, " mm", false, null)] };
 
         Assert.Equal(
-            "Sheet1: 1 views, 1 of 2 model sizes shown\nProblems (1):\n- Not shown: D2@A 2 mm\nThese checks passing doesn't prove the drawing meets its requirements, and they don't see lines running through text. Look at the sheet.\n",
+            "Sheet1: 1 views, 1 of 2 model sizes shown\nProblems (1):\n- Not shown: D2@A 2 mm\nThese checks passing doesn't prove the drawing meets its requirements, and they don't see every overlap in a tight gap. Look at the sheet.\n",
             DrawingAudit.Report("Sheet1", facts));
     }
 

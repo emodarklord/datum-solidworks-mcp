@@ -130,11 +130,47 @@ public readonly record struct SheetBox(double Left, double Bottom, double Right,
     public bool Within(SheetBox other) => Left >= other.Left && Right <= other.Right && Bottom >= other.Bottom && Top <= other.Top;
 
     public SheetBox Inset(double by) => new(Left + by, Bottom + by, Right - by, Top - by);
+
+    // Clips the segment to the box, so a line that only passes through counts as well as one that ends inside.
+    public bool Crossed(SheetSegment line)
+    {
+        var (start, end) = (0.0, 1.0);
+        var (dx, dy) = (line.X2 - line.X1, line.Y2 - line.Y1);
+        foreach (var (p, q) in new[] { (-dx, line.X1 - Left), (dx, Right - line.X1), (-dy, line.Y1 - Bottom), (dy, Top - line.Y1) })
+        {
+            if (p == 0)
+            {
+                if (q < 0)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            var t = q / p;
+            if (p < 0)
+            {
+                start = Math.Max(start, t);
+            }
+            else
+            {
+                end = Math.Min(end, t);
+            }
+        }
+
+        return start <= end;
+    }
 }
+
+public readonly record struct SheetSegment(double X1, double Y1, double X2, double Y2);
 
 // Box is the text's extent on the sheet. Name is what annotation_move and annotation_delete take; View is null on a sheet note.
 public sealed record SheetAnnotation(string Text, double X, double Y, bool Dangling, SheetBox? Box = null, string? Name = null, string? View = null)
 {
+    // A dimension's own dimension and extension lines, which other text should keep clear of.
+    public IReadOnlyList<SheetSegment> Lines { get; init; } = [];
+
     // What a reader sees, where it differs from Text: a dimension's value.
     public string? Shows { get; init; }
 
@@ -357,7 +393,7 @@ public static class DrawingAudit
             report.Append("NOT CHECKED, as asked: ").AppendJoin(", ", skip).Append('\n');
         }
 
-        return report.Append("These checks passing doesn't prove the drawing meets its requirements, and they don't see lines running through text. Look at the sheet.\n").ToString();
+        return report.Append("These checks passing doesn't prove the drawing meets its requirements, and they don't see every overlap in a tight gap. Look at the sheet.\n").ToString();
     }
 
     // A full revolve's 360 and a pattern's count are settings, not sizes anyone machines to.
@@ -375,10 +411,15 @@ public static class DrawingAudit
         var placed = facts.Views.SelectMany(v => v.Annotations.Select(a => (Annotation: a, Owner: (ViewFacts?)v)))
             .Concat(facts.SheetNotes.Select(a => (Annotation: a, Owner: (ViewFacts?)null)))
             .Where(item => item.Annotation.Box is not null)
-            .Select(item => (item.Annotation.Text, Box: item.Annotation.Box!.Value, item.Owner))
+            .Select(item => (item.Annotation.Text, Box: item.Annotation.Box!.Value, item.Owner, item.Annotation.Lines))
             .ToList();
-        foreach (var (text, box, owner) in placed)
+        foreach (var (text, box, owner, _) in placed)
         {
+            if (placed.FirstOrDefault(other => other.Text != text && other.Lines.Any(box.Inset(TextOverlap).Crossed)) is { Text: { } crossing })
+            {
+                yield return $"'{text}' has a line of '{crossing}' through it";
+            }
+
             var label = owner is null ? "Note" : owner.View.Name;
             if (!box.Within(Border(facts).Inset(-SheetTolerance)))
             {

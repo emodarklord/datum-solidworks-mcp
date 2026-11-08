@@ -155,7 +155,7 @@ Three Claude models each built 30 parts through Datum alone, and all 30 passed f
 
 - Assemblies work at the top level: sub-assemblies can be added and counted, but not edited.
 - Motion studies are the animation kind. A gear mate can read erratically in `motion_run` on a large assembly, and two motors tied by a gear mate don't move.
-- A passing `drawing_check` doesn't prove a drawing is good, so look at the sheet too.
+- A passing `drawing_check` doesn't prove a drawing is good, so look at the sheet too. It now flags dimension lines running through text, but not every pair of overlapping texts in a tight gap between views.
 - Drawings cover views, dimensions, tolerances, centre marks, notes, title blocks, BOMs and balloons. GD&T frames and weld symbols aren't curated yet; `invoke` reaches them.
 - SOLIDWORKS can't put centre marks on detail views, so a detail relies on its parent view's marks.
 - `view_capture` renders through the SOLIDWORKS window, so that window must not be minimized. While a sketch is open, its entities don't show in the image.

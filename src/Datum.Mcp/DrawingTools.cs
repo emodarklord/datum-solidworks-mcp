@@ -505,7 +505,7 @@ public static class DrawingTools
                 foreach (var sheetView in facts.Views)
                 {
                     IEnumerable<SheetBox> keepOut = [.. facts.Views.Where(v => v != sheetView).Select(v => v.Outline), .. facts.TitleBlock, .. facts.BomBox is { } bom ? new[] { bom } : []];
-                    foreach (var move in TextPlacement.Tidy(sheetView.Annotations, [.. keepOut, .. facts.Views.Where(v => v != sheetView).SelectMany(v => v.Annotations).Select(a => a.Box).OfType<SheetBox>()], border))
+                    foreach (var move in TextPlacement.Tidy(sheetView.Annotations, [.. keepOut, .. facts.Views.Where(v => v != sheetView).SelectMany(v => v.Annotations).Select(a => a.Box).OfType<SheetBox>()], border, [.. facts.Views.Where(v => v != sheetView).SelectMany(v => v.Annotations).SelectMany(a => a.Lines)]))
                     {
                         await client.RunAsync(b => b.MoveAnnotation(target.Id, move.Name, move.X, move.Y), DrawingTimeout, cancellationToken).ConfigureAwait(false);
                         moved++;
