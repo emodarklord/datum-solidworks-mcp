@@ -6,9 +6,12 @@ using Datum.SolidWorks;
 
 // run  drives a fresh Claude Code session per task through `claude -p`.
 // score measures parts already saved in a folder, however they were made.
+// --mcp-config runs another MCP server instead of Datum, for head-to-head runs: a file with one server in mcpServers.
+// --parts is where that server saves, when it only saves into a folder of its own.
+// --name-only asks for a file name instead of a path, for a server that picks the folder itself.
 if (args is not [("run" or "score") and var mode, var tasksFile, var folder, var model, .. var rest])
 {
-    Console.Error.WriteLine("usage: Datum.Benchmark run|score <tasks.json> <folder> <model> [--claude <exe>] [--datum <exe>] [--task <id>]...");
+    Console.Error.WriteLine("usage: Datum.Benchmark run|score <tasks.json> <folder> <model> [--claude <exe>] [--datum <exe> | --mcp-config <file>] [--parts <folder>] [--name-only] [--task <id>]...");
     return 2;
 }
 
@@ -18,24 +21,44 @@ var picked = rest.Where((_, i) => i > 0 && rest[i - 1] == "--task").ToHashSet(St
 var tasks = JsonSerializer.Deserialize<List<BenchmarkTask>>(await File.ReadAllTextAsync(tasksFile), JsonSerializerOptions.Web)!.Where(t => picked.Count == 0 || picked.Contains(t.Id)).ToList();
 var output = Path.GetFullPath(Path.Combine(folder, model));
 Directory.CreateDirectory(output);
-var config = Path.Combine(output, "mcp.json");
-await File.WriteAllTextAsync(config, JsonSerializer.Serialize(new { mcpServers = new { datum = new { command = datum, args = new[] { "--allow", output } } } }));
+var config = Option("--mcp-config") is { } other ? Path.GetFullPath(other) : Path.Combine(output, "mcp.json");
+if (Option("--mcp-config") is null)
+{
+    await File.WriteAllTextAsync(config, JsonSerializer.Serialize(new { mcpServers = new { datum = new { command = datum, args = new[] { "--allow", output } } } }));
+}
+
+var server = JsonDocument.Parse(await File.ReadAllTextAsync(config)).RootElement.GetProperty("mcpServers").EnumerateObject().Single().Name;
+var parts = Path.GetFullPath(Option("--parts") ?? output);
 
 var results = new List<BenchmarkResult>();
 foreach (var task in tasks)
 {
-    var part = Path.Combine(output, $"{task.Id}.SLDPRT");
+    var part = Path.Combine(parts, $"{task.Id}.SLDPRT");
+    var started = DateTime.Now;
     var (seconds, turns, tokens, cost) = mode == "run" ? await RunAsync(task, part) : Timed(task);
-    var (passed, reason) = BenchmarkScore.Check(task, await MeasureAsync(part));
+    var (passed, reason) = BenchmarkScore.Check(task, await MeasureAsync(mode == "run" ? Saved(task, part, started) : part));
     var result = new BenchmarkResult(task.Id, task.Level, model, passed, reason, seconds, turns, tokens, cost);
     results.Add(result);
     Console.WriteLine($"{task.Id}: {reason}, {seconds:0} s");
+    if (mode == "run")
+    {
+        await CloseAllAsync();
+    }
+
     await File.WriteAllTextAsync(Path.Combine(output, "results.json"), JsonSerializer.Serialize(results, JsonSerializerOptions.Web));
 }
 
 await File.WriteAllTextAsync(Path.Combine(output, "results.md"), BenchmarkScore.Table(results));
 Console.WriteLine(BenchmarkScore.Table(results));
 return 0;
+
+// Some servers won't overwrite a file they saved earlier in the session and save under another name instead, so the
+// newest part starting with the task id counts, as long as it was written during this run.
+string Saved(BenchmarkTask task, string asked, DateTime since) =>
+    new DirectoryInfo(Path.GetDirectoryName(asked)!).EnumerateFiles($"{task.Id}*.SLDPRT")
+        .Where(f => f.LastWriteTime >= since && (f.Name.Length == task.Id.Length + 7 || !char.IsLetterOrDigit(f.Name[task.Id.Length])))
+        .OrderByDescending(f => f.LastWriteTime)
+        .FirstOrDefault()?.FullName ?? asked;
 
 string? Option(string name)
 {
@@ -55,8 +78,8 @@ async Task<(double Seconds, int? Turns, long? Tokens, double? Cost)> RunAsync(Be
     var start = new ProcessStartInfo(claude) { WorkingDirectory = output, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
     foreach (var argument in new[]
     {
-        "-p", $"{task.Prompt} Dimensions are in mm. Save the part as {part}.",
-        "--model", model, "--output-format", "json", "--mcp-config", config, "--strict-mcp-config", "--allowedTools", "mcp__datum__*",
+        "-p", $"{task.Prompt} Dimensions are in mm. Save the part as {(rest.Contains("--name-only") ? Path.GetFileName(part) : part)}.",
+        "--model", model, "--output-format", "json", "--mcp-config", config, "--strict-mcp-config", "--allowedTools", $"mcp__{server}__*",
     })
     {
         start.ArgumentList.Add(argument);
@@ -88,6 +111,27 @@ static (double Seconds, int? Turns, long? Tokens, double? Cost) Usage(string rep
     {
         return (measured, null, null, null);
     }
+}
+
+// Each session starts with nothing open, whatever the last server left behind.
+async Task CloseAllAsync()
+{
+    using var connection = new SolidWorksConnection(() => new ComBackend(), TimeSpan.FromSeconds(90));
+    await connection.UseAsync(
+        async client =>
+        {
+            foreach (var document in await client.RunAsync(b => b.ListDocuments()))
+            {
+                await client.RunAsync(b =>
+                {
+                    b.CloseDocument(document.Id);
+                    return true;
+                });
+            }
+
+            return true;
+        },
+        CancellationToken.None);
 }
 
 async Task<MeasuredPart?> MeasureAsync(string part)
