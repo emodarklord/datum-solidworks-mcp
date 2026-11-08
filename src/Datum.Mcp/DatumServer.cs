@@ -24,6 +24,15 @@ public static class DatumServer
 {
     private static readonly TimeSpan CallTimeout = TimeSpan.FromSeconds(60);
 
+    // Broken rebuilds from the user's own work since the last call, so the model hears of them without asking. What a
+    // call itself rebuilds is already in its reply.
+    private static string? Meanwhile(SolidWorksConnection connection, long mark)
+    {
+        var broken = connection.Events.Between(connection.ReportedEvents, mark).Where(e => e.Kind == "rebuild" && e.Detail?.StartsWith("errors", StringComparison.Ordinal) == true).ToList();
+        connection.ReportedEvents = connection.Events.Count;
+        return broken.Count == 0 ? null : $"Meanwhile in SOLIDWORKS: {string.Join("; ", broken.Select(e => $"{e.Document} rebuilt with {e.Detail}"))}. model_summary explains each broken feature and how to fix it.\n";
+    }
+
     public static IMcpServerBuilder AddDatum(this IServiceCollection services, Func<ISolidWorksBackend> backendFactory, DatumOptions? options = null)
     {
         options ??= new DatumOptions();
@@ -67,6 +76,22 @@ public static class DatumServer
                 var tool = context.Params?.Name ?? "";
                 context.Services?.GetRequiredService<ResourceSubscriptions>().Seen(context.Server);
                 var connection = context.Services?.GetRequiredService<SolidWorksConnection>();
+                if (connection is not null && context.Params?.Arguments is { } args && Selected.Mentioned(args))
+                {
+                    try
+                    {
+                        foreach (var (name, value) in await Selected.ExpandAsync(connection, args, cancellationToken).ConfigureAwait(false))
+                        {
+                            args[name] = value;
+                        }
+                    }
+                    catch (DatumException e)
+                    {
+                        return new CallToolResult { Content = [new TextContentBlock { Text = e.ToString() }], IsError = true };
+                    }
+                }
+
+                var mark = connection?.Events.Count ?? 0;
                 var loose = IntentLog.Records(tool) ? IntentLog.LooseHandles(System.Text.Json.JsonSerializer.Serialize(context.Params?.Arguments)) : [];
                 var refs = connection is not null && loose.Count > 0 ? await InspectionTools.DescribeAsync(connection, loose, cancellationToken).ConfigureAwait(false) : [];
                 var reply = await next(context, cancellationToken).ConfigureAwait(false);
@@ -74,6 +99,11 @@ public static class DatumServer
                 {
                     var text = string.Concat(reply.Content.OfType<TextContentBlock>().Select(block => block.Text));
                     connection?.Intent.Add(tool, context.Params?.Arguments?.ToDictionary(), text, refs);
+                }
+
+                if (connection is not null && reply.IsError != true && Meanwhile(connection, mark) is { } note)
+                {
+                    reply.Content.Add(new TextContentBlock { Text = note });
                 }
 
                 return reply;

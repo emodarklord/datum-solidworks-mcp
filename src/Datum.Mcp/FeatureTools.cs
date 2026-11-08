@@ -90,7 +90,7 @@ public static class FeatureTools
     public static Task<CallToolResult> Fillet(
         SolidWorksConnection solidWorks,
         Workspace workspace,
-        [Description("Edge handles")] string[] edges,
+        [Description("Edge handles, or [\"selected\"] for the edges selected in SOLIDWORKS")] string[] edges,
         [Description("Radius in mm")] double radius,
         [Description("Document id, title or path; defaults to the active document")] string? doc = null,
         CancellationToken cancellationToken = default) =>
@@ -102,7 +102,7 @@ public static class FeatureTools
     public static Task<CallToolResult> Chamfer(
         SolidWorksConnection solidWorks,
         Workspace workspace,
-        [Description("Edge handles")] string[] edges,
+        [Description("Edge handles, or [\"selected\"] for the edges selected in SOLIDWORKS")] string[] edges,
         [Description("Distance in mm")] double distance,
         [Description("Angle in degrees")] double angle = 45,
         [Description("Document id, title or path; defaults to the active document")] string? doc = null,
@@ -115,7 +115,7 @@ public static class FeatureTools
     public static Task<CallToolResult> Hole(
         SolidWorksConnection solidWorks,
         Workspace workspace,
-        [Description("Flat face handle, face#N")] string face,
+        [Description("Flat face handle, face#N, or \"selected\"")] string face,
         [Description("Hole centre on that face as \"x,y,z\" in model mm")] string at,
         [Description("Diameter in mm")] double diameter,
         [Description("Depth in mm; omit for through all")] double? depth = null,
@@ -184,7 +184,7 @@ public static class FeatureTools
         SolidWorksConnection solidWorks,
         Workspace workspace,
         [Description("Wall thickness in mm")] double thickness,
-        [Description("Faces to remove (left open), face#N")] string[] remove,
+        [Description("Faces to remove (left open), face#N, or [\"selected\"]")] string[] remove,
         [Description("Add the wall outside the current faces instead of inside")] bool outward = false,
         [Description("Document id, title or path; defaults to the active document")] string? doc = null,
         CancellationToken cancellationToken = default) =>

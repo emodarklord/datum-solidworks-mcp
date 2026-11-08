@@ -17,7 +17,7 @@ public static class SketchTools
     public static Task<CallToolResult> Begin(
         SolidWorksConnection solidWorks,
         Workspace workspace,
-        [Description("Front, Top, Right, 3D, or a feat#/face# handle")] string on,
+        [Description("Front, Top, Right, 3D, a feat#/face# handle, or \"selected\" for the face selected in SOLIDWORKS")] string on,
         [Description("Document id, title or path; defaults to the active document")] string? doc = null,
         CancellationToken cancellationToken = default) =>
         ToolErrors.Run(() => solidWorks.UseAsync(

@@ -5,6 +5,8 @@ namespace Datum.LiveTests;
 
 public class StdioServerTests
 {
+    private static readonly string[] SelectedEdges = ["selected"];
+
     [Fact]
     public async Task ServesSwStatusOverStdio()
     {
@@ -116,6 +118,35 @@ public class StdioServerTests
         _ = await Task.WhenAny(listening.AsTask(), Task.Delay(2000));
 
         Assert.Contains("datum://events", notice, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FilletTheseFilletsTheSelectedEdges()
+    {
+        var options = new StdioClientTransportOptions { Name = "datum", Command = DatumExecutable(), Arguments = ["--allow", Path.GetTempPath()] };
+        await using var client = await McpClient.CreateAsync(new StdioClientTransport(options));
+        static Dictionary<string, object?> Args(params (string Key, object? Value)[] args) => args.ToDictionary(a => a.Key, a => a.Value);
+        await client.CallToolAsync("toolset_enable", Args(("name", "features")));
+        await client.CallToolAsync("doc_new", Args(("type", "part")));
+        try
+        {
+            await client.CallToolAsync("sketch_begin", Args(("on", "Front")));
+            await client.CallToolAsync("sketch_add", Args(("entities", new object[] { new Dictionary<string, object?> { ["type"] = "center_rect", ["cx"] = 0, ["cy"] = 0, ["width"] = 40, ["height"] = 20 } })));
+            var sketch = TextOf(await client.CallToolAsync("sketch_end"));
+            await client.CallToolAsync("feature_extrude", Args(("sketch", System.Text.RegularExpressions.Regex.Match(sketch, @"feat#\d+").Value), ("depth", 10)));
+            var edges = TextOf(await client.CallToolAsync("model_faces", Args(("kind", "edge"), ("direction", "z"), ("limit", 2)))).Split('\n').Where(l => l.StartsWith("edge#", StringComparison.Ordinal)).Select(l => l.Split(' ')[0]).ToArray();
+            await client.CallToolAsync("model_select", Args(("handles", edges)));
+
+            var fillet = TextOf(await client.CallToolAsync("feature_fillet", Args(("edges", SelectedEdges), ("radius", 2))));
+            Console.WriteLine(fillet);
+
+            Assert.Contains("Fillet", fillet, StringComparison.Ordinal);
+            Assert.Contains("(-", fillet, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await client.CallToolAsync("doc_close", Args(("discardChanges", true)));
+        }
     }
 
     [Fact]

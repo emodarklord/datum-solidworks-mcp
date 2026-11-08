@@ -46,7 +46,7 @@ public static class SheetMetalTools
     public static Task<CallToolResult> Hem(
         SolidWorksConnection solidWorks,
         Workspace workspace,
-        [Description("Edge handles, edge#N")] string[] edges,
+        [Description("Edge handles, edge#N, or [\"selected\"] for the edges selected in SOLIDWORKS")] string[] edges,
         [Description("Hem length in mm")] double length,
         [Description("Gap under the hem in mm")] double gap = 0.5,
         [Description("Document id, title or path; defaults to the active document")] string? doc = null,

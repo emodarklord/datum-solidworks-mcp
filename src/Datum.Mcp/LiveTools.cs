@@ -11,7 +11,7 @@ public static class LiveTools
 
     [Toolset(Toolset)]
     [McpServerTool(Name = "events_recent", ReadOnly = true, Destructive = false, OpenWorld = false)]
-    [Description("What happened in SOLIDWORKS while you weren't calling it: the active document changing, files opened, created, saved or closed, rebuilds with any errors, and the user selecting things. Newest last.")]
+    [Description("What happened in SOLIDWORKS while you weren't calling it: the active document changing, files opened, created, saved or closed, rebuilds with any errors, and the user selecting things. Newest last. Any tool that takes a face, edge or feature handle also takes \"selected\" for what the user has selected.")]
     public static Task<CallToolResult> Recent(
         SolidWorksConnection solidWorks,
         [Description("How many events")] int limit = 20,

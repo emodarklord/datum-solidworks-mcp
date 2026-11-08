@@ -14,6 +14,7 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
 {
     private readonly Pipe _toServer = new();
     private readonly Pipe _toClient = new();
+    private static readonly string[] SelectedOnly = ["selected"];
     private readonly FakeBackend _backend = new();
     private IHost? _host;
     private McpClient? _client;
@@ -48,6 +49,43 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
     }
 
     public void Dispose() => _backend.Dispose();
+
+    [Fact]
+    public async Task SelectedStandsForWhatTheUserSelected()
+    {
+        await _client!.CallToolAsync("doc_new", new Dictionary<string, object?> { ["type"] = "part" });
+        var id = _backend.ListDocuments().Single(d => d.Active).Id;
+        _backend.GeometryOf(id).Faces.Add(new FaceInfo("face#12", SurfaceKind.Plane, 100, new Point3(0, 0, 1), new Point3(0, 0, 10), null, null));
+        _backend.GeometryOf(id).Selection.Add("face#12");
+
+        var reply = StatusToolsTests.TextOf(await _client.CallToolAsync("model_select", new Dictionary<string, object?> { ["handles"] = SelectedOnly }));
+
+        Assert.Contains("face#12", reply, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SelectedWithNothingSelectedSaysSo()
+    {
+        await _client!.CallToolAsync("doc_new", new Dictionary<string, object?> { ["type"] = "part" });
+
+        var reply = await _client.CallToolAsync("model_select", new Dictionary<string, object?> { ["handles"] = SelectedOnly });
+
+        Assert.True(reply.IsError);
+        Assert.StartsWith("INVALID_ARGUMENT: nothing is selected", StatusToolsTests.TextOf(reply), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABrokenRebuildFromTheUserIsMentionedOnce()
+    {
+        await _client!.CallToolAsync("sw_status");
+        _backend.Raise("rebuild", "bracket.SLDPRT", "errors in Fillet1");
+
+        var first = await _client.CallToolAsync("sw_status");
+        var second = await _client.CallToolAsync("sw_status");
+
+        Assert.Contains("Meanwhile in SOLIDWORKS: bracket.SLDPRT rebuilt with errors in Fillet1", string.Concat(first.Content.OfType<TextContentBlock>().Select(b => b.Text)), StringComparison.Ordinal);
+        Assert.DoesNotContain("Meanwhile", string.Concat(second.Content.OfType<TextContentBlock>().Select(b => b.Text)), StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task ListsSwStatusAsReadOnly()

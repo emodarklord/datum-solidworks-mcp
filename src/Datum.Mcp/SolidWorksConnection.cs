@@ -21,6 +21,9 @@ public sealed class SolidWorksConnection(Func<ISolidWorksBackend> backendFactory
     // What SOLIDWORKS reported while the user worked; it carries on across reconnects.
     public EventLog Events { get; } = new();
 
+    // How far through Events the model has been told about broken rebuilds.
+    public long ReportedEvents { get; set; }
+
     // null when SOLIDWORKS goes away.
     public event Action<SolidWorksCapabilities?>? CapabilitiesChanged;
 
