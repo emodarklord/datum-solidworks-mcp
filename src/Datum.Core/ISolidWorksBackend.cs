@@ -268,6 +268,13 @@ public interface ISolidWorksBackend : IDisposable
     // sink is called on the STA thread for each event SOLIDWORKS raises while the user works.
     void Subscribe(Action<SolidWorksEvent> sink);
 
+    IReadOnlyList<EquationInfo> ListEquations(string id);
+
+    // configurations null means all of them.
+    EquationInfo SetEquation(string id, string text, IReadOnlyList<string>? configurations);
+
+    void DeleteEquation(string id, string left);
+
     // Calls a member through COM late binding. A call that might change the model throws NOT_ALLOWED or
     // NOT_OWNED unless writes is Allowed, and then reports the change.
     ApiResult Invoke(string? id, ApiCall request, GatewayWrites writes);

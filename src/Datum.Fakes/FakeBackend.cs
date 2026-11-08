@@ -229,6 +229,31 @@ public sealed class FakeBackend : ISolidWorksBackend
         _sink = sink;
     }
 
+    public IReadOnlyList<EquationInfo> ListEquations(string id)
+    {
+        Enter();
+        return [.. GeometryOf(id).Equations];
+    }
+
+    public EquationInfo SetEquation(string id, string text, IReadOnlyList<string>? configurations)
+    {
+        Enter();
+        var equations = GeometryOf(id).Equations;
+        equations.RemoveAll(e => e.Left == Equations.LeftOf(text));
+        var set = new EquationInfo(equations.Count, text, 0, text.StartsWith('"') && !text.Contains('@', StringComparison.Ordinal));
+        equations.Add(set);
+        return set;
+    }
+
+    public void DeleteEquation(string id, string left)
+    {
+        Enter();
+        if (GeometryOf(id).Equations.RemoveAll(e => e.Left == left) == 0)
+        {
+            throw new DatumException(ErrorCode.NotFound, $"no equation for '{left}'", "equation_list shows them");
+        }
+    }
+
     public void Raise(string kind, string document, string? detail = null) => _sink?.Invoke(new SolidWorksEvent(DateTimeOffset.Now, kind, document, detail));
 
     public IReadOnlyList<ApiEntry> ApiEntries()
@@ -1219,6 +1244,8 @@ public sealed class FakeGeometry
     public List<MateInfo> Mates { get; } = [];
 
     public List<CutListItem> CutList { get; } = [];
+
+    public List<EquationInfo> Equations { get; } = [];
 
     public List<ComponentMoved> NextMateMoves { get; set; } = [];
 
