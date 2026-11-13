@@ -227,6 +227,17 @@ public sealed class AssemblyToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task TheCheckSaysWhenAMotionStudyIsShowing()
+    {
+        await Assembly();
+        _backend.ShowingStudy = "LegOscillation";
+
+        var report = Ok(await AssemblyTools.Check(_connection));
+
+        Assert.EndsWith("Read while motion study 'LegOscillation' is showing, where SOLIDWORKS can call movable parts no solution. If that looks wrong, click the Model tab under the graphics area and check again\n", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ACleanAssemblyHasNoProblems()
     {
         await Assembly();

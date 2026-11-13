@@ -266,6 +266,14 @@ public sealed class FakeBackend : ISolidWorksBackend
         return GeometryOf(id).Bends;
     }
 
+    public string? ActiveMotionStudy(string id)
+    {
+        Enter();
+        return ShowingStudy;
+    }
+
+    public string? ShowingStudy { get; set; }
+
     public Lesson ReadLesson(string id, IReadOnlyList<string> features)
     {
         Enter();

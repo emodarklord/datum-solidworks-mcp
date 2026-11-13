@@ -63,6 +63,18 @@ public sealed partial class ComBackend
         return made ? true : throw new DatumException(ErrorCode.SolidworksError, $"SOLIDWORKS couldn't add the {spec.NormalizedKind}", "Explode and collapse need an exploded view in the active configuration");
     });
 
+    public string? ActiveMotionStudy(string id) => Call(() =>
+    {
+        var document = Find(id);
+        if (document.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
+        {
+            return null;
+        }
+
+        var manager = ManagerOf(document);
+        return ((manager.GetMotionStudyNames() as object[]) ?? []).OfType<string>().FirstOrDefault(name => manager.GetMotionStudy(name) is IMotionStudy { IsActive: true });
+    });
+
     public double MotionStudySeconds(string id, string study) => Call(() => StudyOf(Find(id), study).GetDuration());
 
     public IReadOnlyList<MotionSample> RunMotionStudy(string id, string study, int samples, double? hold = null) => Call<IReadOnlyList<MotionSample>>(() =>

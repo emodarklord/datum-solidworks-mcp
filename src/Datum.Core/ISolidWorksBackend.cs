@@ -229,6 +229,9 @@ public interface ISolidWorksBackend : IDisposable
     // that time, so an interference check can run on a pose partway through.
     IReadOnlyList<MotionSample> RunMotionStudy(string id, string study, int samples, double? hold = null);
 
+    // The motion study showing in an assembly, or null when its Model tab is.
+    string? ActiveMotionStudy(string id);
+
     IReadOnlyList<Raster> RenderMotionStudy(string id, string study, StandardView view, int width, int height, int frames);
 
     // One full turn of the camera around the model's vertical axis, looking down by tilt degrees.

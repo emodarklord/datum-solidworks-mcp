@@ -175,6 +175,15 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task AWrongArgumentNameSaysWhatTheToolTakes()
+    {
+        var result = await _client!.CallToolAsync("toolset_enable", new Dictionary<string, object?> { ["toolset"] = "assembly" });
+
+        Assert.True(result.IsError);
+        Assert.Equal("INVALID_ARGUMENT: toolset_enable couldn't take these arguments: it doesn't take toolset; it needs name. Hint: It takes name (required)", StatusToolsTests.TextOf(result));
+    }
+
+    [Fact]
     public async Task ReturnsErrorsWithTheirCode()
     {
         _backend.ConnectFailure = ErrorCode.NotRunning;

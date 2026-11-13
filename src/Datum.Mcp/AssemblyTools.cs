@@ -178,6 +178,11 @@ public static class AssemblyTools
                 var missing = await client.RunAsync(b => b.MissingFiles(target.Id), AssemblyTimeout, cancellationToken).ConfigureAwait(false);
                 var report = new StringBuilder($"{target.Title}: {components.Count} components, {mates.Count} mates, {clashes.Count} overlaps at this pose\n");
                 AppendProblems(report, AssemblyProblems.Find(components, mates, clashes, missing));
+                if (await client.RunAsync(b => b.ActiveMotionStudy(target.Id), AssemblyTimeout, cancellationToken).ConfigureAwait(false) is { } study)
+                {
+                    report.Append(CultureInfo.InvariantCulture, $"Read while motion study '{study}' is showing, where SOLIDWORKS can call movable parts no solution. If that looks wrong, click the Model tab under the graphics area and check again\n");
+                }
+
                 return report.ToString();
             },
             cancellationToken));

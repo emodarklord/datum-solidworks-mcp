@@ -102,7 +102,19 @@ public static class DatumServer
                 var mark = connection?.Events.Count ?? 0;
                 var loose = IntentLog.Records(tool) ? IntentLog.LooseHandles(System.Text.Json.JsonSerializer.Serialize(context.Params?.Arguments)) : [];
                 var refs = connection is not null && loose.Count > 0 ? await InspectionTools.DescribeAsync(connection, loose, cancellationToken).ConfigureAwait(false) : [];
-                var reply = await next(context, cancellationToken).ConfigureAwait(false);
+                CallToolResult reply;
+                try
+                {
+                    reply = await next(context, cancellationToken).ConfigureAwait(false);
+                }
+
+                // Tools catch their own failures, so what reaches here is the SDK failing to bind the arguments.
+                catch (Exception failure) when (failure is not OperationCanceledException && context.Services?.GetRequiredService<ToolCatalog>().Tool(tool) is { } known)
+                {
+                    var explained = ArgumentErrors.Explain(tool, known.ProtocolTool.InputSchema, [.. context.Params?.Arguments?.Keys ?? []]);
+                    return new CallToolResult { Content = [new TextContentBlock { Text = explained.ToString() }], IsError = true };
+                }
+
                 if (reply.IsError != true && IntentLog.Records(tool))
                 {
                     var text = string.Concat(reply.Content.OfType<TextContentBlock>().Select(block => block.Text));

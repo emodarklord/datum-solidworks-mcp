@@ -178,6 +178,9 @@ public static class AssemblyProblems
 {
     private const string CanMove = ", so it can still move";
 
+    // A solver failure, not freedom: the part sits wherever the solver gave up.
+    private static readonly string[] Unsolved = ["no solution", "over defined", "invalid solution"];
+
     public static bool IsFreeToMove(string problem) => problem.EndsWith(CanMove, StringComparison.Ordinal);
 
     public static IReadOnlyList<string> Find(
@@ -188,7 +191,9 @@ public static class AssemblyProblems
         problems.AddRange(interferences.Select(pair => $"{string.Join(" and ", pair.Components)} overlap by {Numbers.Format(pair.VolumeMm3)} mm³"));
         problems.AddRange(mates.Where(m => m.Error is not null).Select(m => $"{m.Name} has an error: {m.Error}"));
         problems.AddRange(components.Where(c => c.Suppressed).Select(c => $"{c.Name} is suppressed"));
-        problems.AddRange(components.Where(c => !c.Suppressed && !c.Fixed && c.Status != "fully defined").Select(c => $"{c.Name} is {c.Status}{CanMove}"));
+        problems.AddRange(components.Where(c => !c.Suppressed && Unsolved.Contains(c.Status))
+            .Select(c => $"{c.Name} is {c.Status}: its mates can't all be met, so it isn't where they say. Hint: mate_list shows which mates conflict"));
+        problems.AddRange(components.Where(c => !c.Suppressed && !c.Fixed && c.Status != "fully defined" && !Unsolved.Contains(c.Status)).Select(c => $"{c.Name} is {c.Status}{CanMove}"));
         if (components.Count > 0 && !components.Any(c => c.Fixed))
         {
             problems.Add("No component is fixed, so the whole assembly can move");
