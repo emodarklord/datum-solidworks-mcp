@@ -384,6 +384,9 @@ public static class EditTools
                 case RestoreFixed restoreFixed:
                     await client.RunAsync(b => b.SetComponentFixed(id, restoreFixed.Component, restoreFixed.Fixed), EditTimeout, cancellationToken).ConfigureAwait(false);
                     return true;
+                case RestoreFlexible restoreFlexible:
+                    await client.RunAsync(b => b.SetComponentFlexible(id, restoreFlexible.Component, restoreFlexible.Flexible), EditTimeout, cancellationToken).ConfigureAwait(false);
+                    return true;
                 case RestoreMaterial material:
                     await client.RunAsync(b => b.SetMaterial(id, material.Name, material.Database ?? ""), EditTimeout, cancellationToken).ConfigureAwait(false);
                     return true;

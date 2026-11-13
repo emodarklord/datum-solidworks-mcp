@@ -150,7 +150,7 @@ public sealed class McpProtocolTests : IAsyncLifetime, IDisposable
                 + "model_tree, model_info, model_faces, model_select, selection_get, sketch_begin, sketch_add, sketch_constrain, sketch_end, feature_extrude, "
                 + "checkpoint_list, checkpoint_restore, view_capture\n"
                 + "api (4): api_search, run_macro, api_members, invoke\n"
-                + "assembly (13): component_add, component_list, component_fix, component_move, mate_add, mate_list, assembly_check, assembly_bom, config_list, config_add, config_activate, explode_create, explode_show\n"
+                + "assembly (14): component_add, component_list, component_fix, component_flexible, component_move, mate_add, mate_list, assembly_check, assembly_bom, config_list, config_add, config_activate, explode_create, explode_show\n"
                 + "batch (2): batch_export, batch_properties\n"
                 + "check (7): model_measure, sketch_read, model_make_check, model_summary, model_flex, requirements_set, requirements_check\n"
                 + "diagnostics (1): sw_addins\n"

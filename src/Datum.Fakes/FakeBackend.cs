@@ -572,6 +572,12 @@ public sealed class FakeBackend : ISolidWorksBackend
         return Replace(id, component, c => c with { Fixed = isFixed });
     }
 
+    public ComponentInfo SetComponentFlexible(string id, string component, bool flexible)
+    {
+        Enter();
+        return Replace(id, component, c => c with { Flexible = flexible });
+    }
+
     public ComponentMove MoveComponent(string id, string component, ComponentPose pose)
     {
         Enter();

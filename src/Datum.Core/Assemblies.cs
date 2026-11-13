@@ -81,10 +81,13 @@ public readonly record struct ComponentPose(Point3 PositionMm, Point3 RotationDe
 
 public sealed record ComponentInfo(string Handle, string Name, string? Path, string Configuration, bool Fixed, bool Suppressed, string Status, ComponentPose Pose)
 {
+    // A sub-assembly whose own mates still move inside the main one, as a mechanism needs.
+    public bool Flexible { get; init; }
+
     public override string ToString()
     {
         var state = Suppressed ? "suppressed" : Fixed ? "fixed" : Status;
-        return $"{Handle} {Name} [{Configuration}] {state}, {Pose}";
+        return $"{Handle} {Name} [{Configuration}] {state}{(Flexible ? ", flexible" : "")}, {Pose}";
     }
 }
 
@@ -93,7 +96,7 @@ public sealed record ComponentMove(ComponentPose Before, ComponentPose After, bo
 
 public sealed record MateSpec(string Kind, string First, string Second, double? Value, string Alignment, bool Flip)
 {
-    private static readonly string[] Kinds = ["coincident", "concentric", "parallel", "perpendicular", "tangent", "distance", "angle", "lock", "gear", "screw"];
+    private static readonly string[] Kinds = ["coincident", "concentric", "parallel", "perpendicular", "tangent", "distance", "angle", "lock", "gear", "screw", "profile_center"];
 
     public string NormalizedKind => Kind.Trim().ToLowerInvariant();
 
@@ -104,6 +107,9 @@ public sealed record MateSpec(string Kind, string First, string Second, double? 
 
     // Gear only, as first:second teeth or diameters, e.g. 60:13.
     public string? Ratio { get; init; }
+
+    // Profile center only: stop the second profile turning about the first.
+    public bool LockRotation { get; init; }
 
     public string Label => Ratio is null ? Kind : $"{Kind} {Ratio}";
 
@@ -130,14 +136,25 @@ public sealed record MateSpec(string Kind, string First, string Second, double? 
         }
 
         var needsValue = screw || NormalizedKind is "distance" or "angle";
+        var center = NormalizedKind == "profile_center";
+        if (center && Value is < 0)
+        {
+            throw new DatumException(ErrorCode.InvalidArgument, $"a {NormalizedKind} mate's value can't be negative", "Use flip for the other side");
+        }
+
         if (needsValue && Value is not >= 0)
         {
             throw new DatumException(ErrorCode.InvalidArgument, $"a {NormalizedKind} mate needs a value of 0 or more", "Nothing was changed");
         }
 
-        if (!needsValue && Value is not null)
+        if (!needsValue && !center && Value is not null)
         {
             throw new DatumException(ErrorCode.InvalidArgument, $"a {NormalizedKind} mate takes no value", "Nothing was changed");
+        }
+
+        if (LockRotation && !center)
+        {
+            throw new DatumException(ErrorCode.InvalidArgument, "lock_rotation goes with a profile_center mate", "Nothing was changed");
         }
 
         if (Min is null != Max is null || (Min is not null && (!needsValue || screw || Min < 0 || Min >= Max || Value < Min || Value > Max)))

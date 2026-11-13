@@ -107,6 +107,43 @@ public sealed partial class AssemblyTests : IDisposable
     });
 
     [Fact]
+    public async Task AProfileCenterMateCentresThePinOnThePlate() => await InNewAssembly(async () =>
+    {
+        var plate = Ok(await AssemblyTools.Add(_connection, _workspace, Plate)).Split(' ')[1];
+        var pin = Ok(await AssemblyTools.Add(_connection, _workspace, Pin, x: 100, z: 40)).Split(' ')[1];
+        Ok(await AssemblyTools.Fix(_connection, _workspace, plate));
+
+        var mate = Ok(await AssemblyTools.Mate(_connection, _workspace, "profile_center", await FaceOf(plate, normal: "+y"), await FaceOf(pin, normal: "-y"), lockRotation: true));
+        var list = Ok(await AssemblyTools.List(_connection));
+        Console.WriteLine($"{mate}{list}{Ok(await AssemblyTools.Mates(_connection))}");
+
+        Assert.Contains($"{pin} pin-1 [Default] fully defined, at 0,10,0 mm", list, StringComparison.Ordinal);
+        Assert.Contains("[profilecenter]", Ok(await AssemblyTools.Mates(_connection)), StringComparison.Ordinal);
+    });
+
+    [Fact]
+    public async Task ASubAssemblyCanBeMadeFlexibleAndRigidAgain() => await InNewAssembly(async () =>
+    {
+        var main = (await Assembly()).Id;
+        Ok(await DocumentTools.New(_connection, _workspace, "assembly"));
+        Ok(await AssemblyTools.Add(_connection, _workspace, Plate));
+        Ok(await AssemblyTools.Add(_connection, _workspace, Pin, x: 100));
+        Ok(await DocumentTools.Save(_connection, _workspace, path: Path.Combine(_root, "Datum", "pinned.sldasm")));
+        Ok(await DocumentTools.Close(_connection));
+        Ok(await DocumentTools.Activate(_connection, _workspace, main));
+        var sub = Ok(await AssemblyTools.Add(_connection, _workspace, Path.Combine(_root, "Datum", "pinned.sldasm"))).Split(' ')[1];
+
+        var flexible = Ok(await AssemblyTools.Flexible(_connection, _workspace, sub));
+        var rigid = Ok(await AssemblyTools.Flexible(_connection, _workspace, sub, flexible: false));
+        var part = Error(await AssemblyTools.Flexible(_connection, _workspace, Ok(await AssemblyTools.Add(_connection, _workspace, Pin)).Split(' ')[1]));
+        Console.WriteLine($"{flexible}{rigid}{part}");
+
+        Assert.Contains(", flexible, at", flexible, StringComparison.Ordinal);
+        Assert.DoesNotContain("flexible", rigid, StringComparison.Ordinal);
+        Assert.StartsWith("INVALID_ARGUMENT: ", part, StringComparison.Ordinal);
+    });
+
+    [Fact]
     public async Task AScrewMateTurnsThePartAsItTravels() => await InNewAssembly(async () =>
     {
         var plate = Ok(await AssemblyTools.Add(_connection, _workspace, Plate)).Split(' ')[1];
@@ -448,6 +485,13 @@ public sealed partial class AssemblyTests : IDisposable
     {
         var text = Text(result);
         Assert.True(result.IsError != true, text);
+        return text;
+    }
+
+    private static string Error(CallToolResult result)
+    {
+        var text = Text(result);
+        Assert.True(result.IsError, text);
         return text;
     }
 

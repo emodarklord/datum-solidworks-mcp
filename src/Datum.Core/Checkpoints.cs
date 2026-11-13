@@ -24,6 +24,8 @@ public sealed record RemoveMate(string Feature, IReadOnlyList<ComponentMoved> Mo
 
 public sealed record RestoreFixed(string Component, bool Fixed) : Reversal;
 
+public sealed record RestoreFlexible(string Component, bool Flexible) : Reversal;
+
 public sealed record RestoreMaterial(string? Name, string? Database) : Reversal;
 
 // OldValue null means the property did not exist, so restoring removes it.

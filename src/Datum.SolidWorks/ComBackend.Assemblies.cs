@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Datum.Core;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -40,6 +41,28 @@ public sealed partial class ComBackend
     {
         var document = Find(id);
         return ComponentsOf(document, id).Select(component => DescribeComponent(id, document, component)).ToList();
+    });
+
+    public ComponentInfo SetComponentFlexible(string id, string component, bool flexible) => Call(() =>
+    {
+        var document = Find(id);
+        var target = ComponentOf(id, document, component);
+        if (target.GetModelDoc2() is not IAssemblyDoc)
+        {
+            throw new DatumException(ErrorCode.InvalidArgument, $"{component} is a part", "Only a sub-assembly can be flexible");
+        }
+
+        var assembly = AssemblyOf(document, id);
+        document.ClearSelection2(true);
+        target.Select4(false, null, false);
+        var solving = flexible ? swComponentSolvingOption_e.swComponentFlexibleSolving : swComponentSolvingOption_e.swComponentRigidSolving;
+        var set = assembly.CompConfigProperties6(
+            (int)swComponentSuppressionState_e.swComponentFullyResolved, (int)solving, target.Visible == (int)swComponentVisibilityState_e.swComponentVisible, false, "", target.ExcludeFromBOM, false, 0);
+        document.ClearSelection2(true);
+        document.EditRebuild3();
+        return set && target.Solving == (int)solving
+            ? DescribeComponent(id, document, target)
+            : throw new DatumException(ErrorCode.SolidworksError, $"SOLIDWORKS didn't make {component} {(flexible ? "flexible" : "rigid")}", "Check it isn't lightweight or suppressed");
     });
 
     public ComponentInfo SetComponentFixed(string id, string component, bool isFixed) => Call(() =>
@@ -137,8 +160,24 @@ public sealed partial class ComBackend
         var (lowDistance, highDistance) = !isAngle && spec.Limited ? (spec.Min!.Value / Mm, spec.Max!.Value / Mm) : (distance, distance);
         var (lowAngle, highAngle) = isAngle && spec.Limited ? (spec.Min!.Value * Math.PI / 180, spec.Max!.Value * Math.PI / 180) : (angle, angle);
         var (first, second) = spec.Ratio is null ? (1, 1) : DrawingScale.Parse(spec.Ratio);
-        assembly.AddMate5(
-            (int)MateTypeOf(spec), (int)AlignmentOf(spec), spec.Flip, distance, highDistance, lowDistance, first, second, angle, highAngle, lowAngle, false, false, 0, out status);
+        if (spec.NormalizedKind == "profile_center")
+        {
+            // AddMate5 has no profile center; it is built from mate data, with both profiles passed as one dispatch array.
+            var center = (IProfileCenterMateFeatureData)assembly.CreateMateData((int)swMateType_e.swMatePROFILECENTER);
+            center.EntitiesToMate = new[] { new DispatchWrapper(targets[0]), new DispatchWrapper(targets[1]) };
+            center.MateAlignment = (int)AlignmentOf(spec);
+            center.OffsetDistance = distance;
+            center.FlipDimension = spec.Flip;
+            center.LockRotation = spec.LockRotation;
+            document.ClearSelection2(true);
+            status = assembly.CreateMate(center) is null ? (int)swAddMateError_e.swAddMateError_ErrorUknown : (int)swAddMateError_e.swAddMateError_NoError;
+        }
+        else
+        {
+            assembly.AddMate5(
+                (int)MateTypeOf(spec), (int)AlignmentOf(spec), spec.Flip, distance, highDistance, lowDistance, first, second, angle, highAngle, lowAngle, false, false, 0, out status);
+        }
+
         document.ClearSelection2(true);
         document.EditRebuild3();
 
@@ -341,7 +380,10 @@ public sealed partial class ComBackend
         component.IsFixed(),
         component.IsSuppressed(),
         SketchSpecs.DescribeStatus(component.GetConstrainedStatus()),
-        PoseOf(component));
+        PoseOf(component))
+    {
+        Flexible = component.Solving == (int)swComponentSolvingOption_e.swComponentFlexibleSolving,
+    };
 
     // A double[] crosses COM as a typed array. An untyped one is accepted too and silently misplaces the component.
     private MathTransform TransformOf(ComponentPose pose) => (MathTransform)((IMathUtility)App.GetMathUtility()).CreateTransform(pose.ToTransform());

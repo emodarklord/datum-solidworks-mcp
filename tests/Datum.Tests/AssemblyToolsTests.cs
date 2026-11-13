@@ -56,6 +56,19 @@ public sealed class AssemblyToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task MakingASubAssemblyFlexibleShowsAndCanBeUndone()
+    {
+        await Assembly();
+        var motor = await Component();
+        var checkpoint = Ok(await EditTools.Create(_connection, "before")).Split(' ')[0];
+
+        Assert.Contains(", flexible, at", Ok(await AssemblyTools.Flexible(_connection, _workspace, motor)), StringComparison.Ordinal);
+
+        Ok(await EditTools.Restore(_connection, _workspace, checkpoint));
+        Assert.DoesNotContain("flexible", Ok(await AssemblyTools.List(_connection)), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task MovingReportsThePoseAndCanBeUndone()
     {
         await Assembly();
@@ -175,6 +188,7 @@ public sealed class AssemblyToolsTests : IDisposable
     [InlineData("coincident", null, "sideways", "INVALID_ARGUMENT: unknown alignment 'sideways'")]
     [InlineData("screw", null, "closest", "INVALID_ARGUMENT: a screw mate needs its lead")]
     [InlineData("screw", 0d, "closest", "INVALID_ARGUMENT: a screw mate needs its lead")]
+    [InlineData("profile_center", -1d, "closest", "INVALID_ARGUMENT: a profile_center mate's value can't be negative")]
     public async Task BadMatesAreRefusedBeforeReachingSolidWorks(string kind, double? value, string alignment, string expected)
     {
         await Assembly();
@@ -182,6 +196,16 @@ public sealed class AssemblyToolsTests : IDisposable
         var reply = Error(await AssemblyTools.Mate(_connection, _workspace, kind, "face#1", "face#2", value, alignment));
 
         Assert.StartsWith(expected, reply, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LockRotationOnlyGoesWithAProfileCenter()
+    {
+        await Assembly();
+
+        var reply = Error(await AssemblyTools.Mate(_connection, _workspace, "concentric", "face#1", "face#2", lockRotation: true));
+
+        Assert.StartsWith("INVALID_ARGUMENT: lock_rotation goes with a profile_center mate", reply, StringComparison.Ordinal);
     }
 
     [Fact]

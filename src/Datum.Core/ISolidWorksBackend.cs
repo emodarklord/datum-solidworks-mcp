@@ -122,6 +122,9 @@ public interface ISolidWorksBackend : IDisposable
 
     ComponentInfo SetComponentFixed(string id, string component, bool isFixed);
 
+    // Flexible lets a sub-assembly's own mates move inside this assembly; rigid solves it as one piece.
+    ComponentInfo SetComponentFlexible(string id, string component, bool flexible);
+
     // Reports where the component ended up, which mates may have decided.
     ComponentMove MoveComponent(string id, string component, ComponentPose pose);
 

@@ -77,6 +77,26 @@ public static class AssemblyTools
             cancellationToken));
 
     [Toolset(Toolset)]
+    [McpServerTool(Name = "component_flexible", Destructive = false, OpenWorld = false)]
+    [Description("Make a sub-assembly flexible, so its own mates still move inside this assembly, as gears or linkages in a bought-in motor need; or rigid again, so it moves as one piece.")]
+    public static Task<CallToolResult> Flexible(
+        SolidWorksConnection solidWorks,
+        Workspace workspace,
+        [Description("Sub-assembly component handle, comp#N")] string component,
+        [Description("true for flexible, false for rigid")] bool flexible = true,
+        [Description("Document id, title or path; defaults to the active document")] string? doc = null,
+        CancellationToken cancellationToken = default) =>
+        ToolErrors.Run(() => solidWorks.UseAsync(
+            async client =>
+            {
+                var target = await EditableAssemblyAsync(client, workspace, doc, cancellationToken).ConfigureAwait(false);
+                var changed = await client.RunAsync(b => b.SetComponentFlexible(target.Id, component, flexible), AssemblyTimeout, cancellationToken).ConfigureAwait(false);
+                solidWorks.Checkpoints.Record(target.Id, $"made {changed.Name} {(flexible ? "flexible" : "rigid")}", new RestoreFlexible(component, !flexible));
+                return $"{changed}\n";
+            },
+            cancellationToken));
+
+    [Toolset(Toolset)]
     [McpServerTool(Name = "component_move", Destructive = false, OpenWorld = false)]
     [Description("Place a component at a position in mm and rotation in degrees, about the assembly's X, then Y, then Z. "
         + "The result is read back: if mates hold it elsewhere, the reply says so. A fixed component is refused until floated. Prefer mates for final positions.")]
@@ -112,7 +132,7 @@ public static class AssemblyTools
     public static Task<CallToolResult> Mate(
         SolidWorksConnection solidWorks,
         Workspace workspace,
-        [Description("coincident, concentric, parallel, perpendicular, tangent, distance, angle, lock, gear or screw. Gear ties two cylinders' rotation at a ratio. Screw ties one part's turning to the other's travel along two concentric cylinders")] string kind,
+        [Description("coincident, concentric, parallel, perpendicular, tangent, distance, angle, lock, gear, screw or profile_center. Gear ties two cylinders' rotation at a ratio. Screw ties one part's turning to the other's travel along two concentric cylinders. Profile_center centres one face's outline on another's, such as a hex peg in a hex socket, with value as an offset")] string kind,
         [Description("First entity, or \"selected\" for the first thing selected in SOLIDWORKS")] string first,
         [Description("Second entity, or \"selected\" for the next selected thing")] string second,
         [Description("Distance in mm or angle in degrees, for those two kinds. For screw, the lead in mm per turn")] double? value = null,
@@ -121,12 +141,13 @@ public static class AssemblyTools
         [Description("Lowest distance or angle, making it a range with value as the start")] double? min = null,
         [Description("Highest distance or angle")] double? max = null,
         [Description("Gear ratio as first:second size, so the second turns faster when the first is bigger, e.g. 60:13 teeth")] string? ratio = null,
+        [Description("Profile_center only: stop the second part turning about the first")] bool lockRotation = false,
         [Description("Document id, title or path; defaults to the active document")] string? doc = null,
         CancellationToken cancellationToken = default) =>
         ToolErrors.Run(() => solidWorks.UseAsync(
             async client =>
             {
-                var spec = new MateSpec(kind, first, second, value, alignment, flip) { Min = min, Max = max, Ratio = ratio };
+                var spec = new MateSpec(kind, first, second, value, alignment, flip) { Min = min, Max = max, Ratio = ratio, LockRotation = lockRotation };
                 spec.Validate();
                 var target = await EditableAssemblyAsync(client, workspace, doc, cancellationToken).ConfigureAwait(false);
                 var mate = await client.RunAsync(b => b.AddMate(target.Id, spec), AssemblyTimeout, cancellationToken).ConfigureAwait(false);
