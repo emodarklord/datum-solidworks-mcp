@@ -926,14 +926,14 @@ public sealed class FakeBackend : ISolidWorksBackend
         return StudySeconds(id, study);
     }
 
-    public IReadOnlyList<MotionSample> RunMotionStudy(string id, string study, int samples, double? hold = null)
+    public IReadOnlyList<MotionSample> RunMotionStudy(string id, string study, IReadOnlyList<double> times, double? hold = null)
     {
         Enter();
-        var seconds = StudySeconds(id, study);
-        return [.. Enumerable.Range(1, samples).SelectMany(i => new[]
+        _ = StudySeconds(id, study);
+        return [.. times.SelectMany(at => new[]
         {
-            new MotionSample(seconds * i / samples, "wheel-1", 90, 0),
-            new MotionSample(seconds * i / samples, "frame-1", 0, 0),
+            new MotionSample(at, "wheel-1", 90, 0),
+            new MotionSample(at, "frame-1", 0, 0),
         })];
     }
 
@@ -941,6 +941,14 @@ public sealed class FakeBackend : ISolidWorksBackend
     {
         Enter();
         return [.. Enumerable.Range(0, frames).Select(_ => new Raster(width, height, new byte[width * height * 3]))];
+    }
+
+    public MotionVideo RecordMotionVideo(string id, string study, StandardView view, string path, int fps, int width, int height)
+    {
+        Enter();
+        var seconds = StudySeconds(id, study);
+        File.WriteAllBytes(path, [1, 2, 3]);
+        return new MotionVideo([Raster.Filled(width / 4, height / 4, 255, 255, 255)], new VideoFile(true, seconds + (1.0 / fps)));
     }
 
     public IReadOnlyList<Raster> RenderMotionStudy(string id, string study, StandardView view, int width, int height, int frames)

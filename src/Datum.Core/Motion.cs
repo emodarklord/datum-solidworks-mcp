@@ -3,6 +3,9 @@ namespace Datum.Core;
 // A constant Rpm, or a swing out to Swing degrees and back every Period seconds.
 public sealed record MotionMotorSpec(string Face, double? Rpm, double? Swing, double? Period, bool Reverse)
 {
+    // The component the motor turns against, comp#N; SOLIDWORKS uses the ground when it's null.
+    public string? RelativeTo { get; init; }
+
     public void Validate()
     {
         if (Rpm is null == Swing is null || Rpm is <= 0 || (Swing is not null && Swing <= 0) || (Swing is null ? Period is not null : Period is not > 0))
@@ -38,9 +41,36 @@ public sealed record MotionSample(double Seconds, string Component, double Turne
 {
     private const double StillTolerance = 1e-3;
 
+    // The time SOLIDWORKS actually showed, when it didn't settle at the one asked for.
+    public double? Reached { get; init; }
+
     public bool Stationary => Math.Abs(Turned) < StillTolerance && Moved < StillTolerance;
 
-    public override string ToString() => $"{Numbers.Format(Seconds)} s {Component}: turned {Numbers.Format(Turned)}°, moved {Numbers.Format(Moved)} mm";
+    public override string ToString() =>
+        $"{Numbers.Format(Seconds)} s{(Reached is { } reached ? $" (SOLIDWORKS stopped at {Numbers.Format(reached)} s)" : "")} {Component}: turned {Numbers.Format(Turned)}°, moved {Numbers.Format(Moved)} mm";
+}
+
+// Checks are frames rendered the same way just before the video, since Datum can't decode the video itself.
+public sealed record MotionVideo(IReadOnlyList<Raster> Checks, VideoFile File);
+
+public static class MotionTimes
+{
+    public const int MostSamples = 40;
+
+    // Evenly spaced through the study, or the times asked for, in order.
+    public static IReadOnlyList<double> Pick(double seconds, int samples, IReadOnlyList<double>? times)
+    {
+        if (times is { Count: > 0 })
+        {
+            return times.Count > MostSamples || times.Any(t => t < 0 || t > seconds)
+                ? throw new DatumException(ErrorCode.InvalidArgument, $"give 1 to {MostSamples} times between 0 and the study's {Numbers.Format(seconds)} s", "Nothing was run")
+                : [.. times.Distinct().Order()];
+        }
+
+        return samples is < 1 or > MostSamples
+            ? throw new DatumException(ErrorCode.InvalidArgument, $"samples must be 1 to {MostSamples}", "Nothing was run")
+            : [.. Enumerable.Range(1, samples).Select(i => seconds * i / samples)];
+    }
 }
 
 public static class Gif

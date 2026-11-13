@@ -64,6 +64,22 @@ public sealed partial class MotionTests : IDisposable
     });
 
     [Fact]
+    public async Task AnMp4IsFinishedCentredAndAsLongAsTheStudy() => await WithGearedDiscs(async (first, _) =>
+    {
+        var file = Path.Combine(_root, "Datum", "spin.mp4");
+        Ok(await MotionTools.New(_connection, _workspace, 2, "Spin"));
+        Ok(await MotionTools.Motor(_connection, _workspace, "Spin", await Cylinder(first, 0), rpm: 30));
+        var run = Ok(await MotionTools.Run(_connection, "Spin", times: [0.5, 1, 2]));
+        var export = Ok(await MotionTools.Export(_connection, _workspace, "Spin", file, fps: 10, width: 640));
+        Console.WriteLine($"{run}{export}");
+
+        Assert.Contains("0.5 s disc-1: turned", run, StringComparison.Ordinal);
+        Assert.Contains("It runs 2", export, StringComparison.Ordinal);
+        Assert.DoesNotContain("WARNING", export, StringComparison.Ordinal);
+        Assert.True(VideoFile.Read(file).Complete);
+    });
+
+    [Fact]
     public async Task ATurntableWritesAGifOfEveryFrame() => await WithGearedDiscs(async (_, _) =>
     {
         var file = Path.Combine(_root, "Datum", "turn.gif");

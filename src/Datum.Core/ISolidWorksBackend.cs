@@ -230,12 +230,15 @@ public interface ISolidWorksBackend : IDisposable
 
     // Calculates the study, then samples every component against where it was at time 0. hold leaves the assembly at
     // that time, so an interference check can run on a pose partway through.
-    IReadOnlyList<MotionSample> RunMotionStudy(string id, string study, int samples, double? hold = null);
+    IReadOnlyList<MotionSample> RunMotionStudy(string id, string study, IReadOnlyList<double> times, double? hold = null);
 
     // The motion study showing in an assembly, or null when its Model tab is.
     string? ActiveMotionStudy(string id);
 
     IReadOnlyList<Raster> RenderMotionStudy(string id, string study, StandardView view, int width, int height, int frames);
+
+    // An MP4 or AVI rendered by SOLIDWORKS at width x height, with the view fitted to everything the study moves through.
+    MotionVideo RecordMotionVideo(string id, string study, StandardView view, string path, int fps, int width, int height);
 
     // One full turn of the camera around the model's vertical axis, looking down by tilt degrees.
     IReadOnlyList<Raster> RenderTurntable(string id, double tilt, int width, int height, int frames);

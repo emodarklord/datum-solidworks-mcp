@@ -120,24 +120,26 @@ public sealed partial class ComBackend
     public IReadOnlyList<FaceInfo> ListComponentFaces(string id, string component, string? feature = null) => Call(() =>
     {
         var document = Find(id);
-        var target = ComponentOf(id, document, component);
-        var pose = PoseOf(target);
-        return BodiesOf(target).SelectMany(body => (body.GetFaces() as object[] ?? []).OfType<IFace2>())
-            .Where(face => MadeBy(face, feature))
-            .Select(face => DescribeFace(id, document, face))
-            .Select(face => face with { Center = pose.Place(face.Center), Normal = face.Normal is { } normal ? pose.Turn(normal) : null })
-            .ToList();
+        return PartsIn(ComponentOf(id, document, component)).SelectMany(part =>
+        {
+            var pose = PoseOf(part);
+            return BodiesOf(part).SelectMany(body => (body.GetFaces() as object[] ?? []).OfType<IFace2>())
+                .Where(face => MadeBy(face, feature))
+                .Select(face => DescribeFace(id, document, face))
+                .Select(face => face with { Center = pose.Place(face.Center), Normal = face.Normal is { } normal ? pose.Turn(normal) : null });
+        }).ToList();
     });
 
     public IReadOnlyList<EdgeInfo> ListComponentEdges(string id, string component) => Call(() =>
     {
         var document = Find(id);
-        var target = ComponentOf(id, document, component);
-        var pose = PoseOf(target);
-        return BodiesOf(target).SelectMany(body => (body.GetEdges() as object[] ?? []).OfType<IEdge>())
-            .Select(edge => DescribeEdge(id, document, edge))
-            .Select(edge => edge with { Direction = edge.Direction is { } direction ? pose.Turn(direction) : null })
-            .ToList();
+        return PartsIn(ComponentOf(id, document, component)).SelectMany(part =>
+        {
+            var pose = PoseOf(part);
+            return BodiesOf(part).SelectMany(body => (body.GetEdges() as object[] ?? []).OfType<IEdge>())
+                .Select(edge => DescribeEdge(id, document, edge))
+                .Select(edge => edge with { Direction = edge.Direction is { } direction ? pose.Turn(direction) : null });
+        }).ToList();
     });
 
     public MateResult AddMate(string id, MateSpec spec) => Call(() =>
@@ -322,6 +324,14 @@ public sealed partial class ComBackend
         }
 
         return null;
+    }
+
+    // A sub-assembly has no bodies of its own, so its faces are its parts' faces, each placed by that part's own transform
+    // to the top assembly.
+    private static IEnumerable<IComponent2> PartsIn(IComponent2 component)
+    {
+        var children = (component.GetChildren() as object[] ?? []).OfType<IComponent2>().Where(c => !c.IsSuppressed()).ToList();
+        return children.Count == 0 ? [component] : children.SelectMany(PartsIn);
     }
 
     private static List<IBody2> BodiesOf(IComponent2 component) =>

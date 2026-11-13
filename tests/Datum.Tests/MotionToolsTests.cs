@@ -39,6 +39,38 @@ public sealed class MotionToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task AStudyCanBeSampledAtGivenTimes()
+    {
+        Ok(await DocumentTools.New(_connection, _workspace, "assembly"));
+        Ok(await MotionTools.New(_connection, _workspace, 2, "Spin"));
+
+        var run = Ok(await MotionTools.Run(_connection, "Spin", times: [1.5, 0.5]));
+        var late = Error(await MotionTools.Run(_connection, "Spin", times: [3]));
+
+        Assert.StartsWith("0.5 s wheel-1: turned 90°, moved 0 mm\n1.5 s wheel-1:", run, StringComparison.Ordinal);
+        Assert.StartsWith("INVALID_ARGUMENT: give 1 to 40 times between 0 and the study's 2 s", late, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASampleSaysWhenSolidWorksStoppedElsewhere()
+    {
+        Assert.Equal("0.5 s (SOLIDWORKS stopped at 0.75 s) leg-1: turned 45°, moved 0 mm", new MotionSample(0.5, "leg-1", 45, 0) { Reached = 0.75 }.ToString());
+    }
+
+    [Fact]
+    public async Task AnMp4ExportGivesItsLengthAndFraming()
+    {
+        Ok(await DocumentTools.New(_connection, _workspace, "assembly"));
+        Ok(await MotionTools.New(_connection, _workspace, 8, "Walk"));
+
+        var reply = Ok(await MotionTools.Export(_connection, _workspace, "Walk", Path.Combine(_root, "Datum", "walk.mp4"), fps: 20, width: 1280));
+
+        Assert.StartsWith("Exported ", reply, StringComparison.Ordinal);
+        Assert.Contains(", 1280 x 960 at 20 fps\nIt runs 8.05 s; SOLIDWORKS writes both end frames", reply, StringComparison.Ordinal);
+        Assert.EndsWith("WARNING: the check frames came out blank, so the model may be out of view\n", reply, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AnExportWritesAGifOfEveryFrame()
     {
         Ok(await DocumentTools.New(_connection, _workspace, "assembly"));
