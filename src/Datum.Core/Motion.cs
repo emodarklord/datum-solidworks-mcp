@@ -15,6 +15,10 @@ public sealed record MotionMotorSpec(string Face, double? Rpm, double? Swing, do
     }
 }
 
+// Parent names the sub-assembly the driven face sits in. A motor there moved nothing on the Week 12 walker, rigid or
+// flexible; one on a part directly in the assembly did.
+public sealed record MotorMade(string Name, string? Part, string? Parent);
+
 public sealed record MotionPathSpec(string Kind, double Seconds, double Start)
 {
     private static readonly string[] Kinds = ["explode", "collapse"];

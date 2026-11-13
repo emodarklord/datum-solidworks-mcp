@@ -133,6 +133,8 @@ public sealed partial class AssemblyTests : IDisposable
         Ok(await DocumentTools.Activate(_connection, _workspace, main));
         var sub = Ok(await AssemblyTools.Add(_connection, _workspace, Path.Combine(_root, "Datum", "pinned.sldasm"))).Split(' ')[1];
 
+        var inside = Ok(await InspectionTools.Faces(_connection, component: sub, surface: "cylinder"));
+        Assert.Contains("radius 5 mm", inside, StringComparison.Ordinal);
         var flexible = Ok(await AssemblyTools.Flexible(_connection, _workspace, sub));
         var rigid = Ok(await AssemblyTools.Flexible(_connection, _workspace, sub, flexible: false));
         var part = Error(await AssemblyTools.Flexible(_connection, _workspace, Ok(await AssemblyTools.Add(_connection, _workspace, Pin)).Split(' ')[1]));

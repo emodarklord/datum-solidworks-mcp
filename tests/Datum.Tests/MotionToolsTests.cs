@@ -52,6 +52,20 @@ public sealed class MotionToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task AMotorInsideASubAssemblyIsFlagged()
+    {
+        Ok(await DocumentTools.New(_connection, _workspace, "assembly"));
+        Ok(await MotionTools.New(_connection, _workspace, 2, "Walk"));
+        _backend.NestedFaces.Add("face#63");
+
+        var nested = Ok(await MotionTools.Motor(_connection, _workspace, "Walk", "face#63", rpm: 30));
+        var direct = Ok(await MotionTools.Motor(_connection, _workspace, "Walk", "face#1", rpm: 30));
+
+        Assert.StartsWith("RotaryMotor1 on face#63\nWARNING: face#63 is on Gear_1-1 inside gear_assembly-1.", nested, StringComparison.Ordinal);
+        Assert.Equal("RotaryMotor1 on face#1\n", direct);
+    }
+
+    [Fact]
     public void ASampleSaysWhenSolidWorksStoppedElsewhere()
     {
         Assert.Equal("0.5 s (SOLIDWORKS stopped at 0.75 s) leg-1: turned 45°, moved 0 mm", new MotionSample(0.5, "leg-1", 45, 0) { Reached = 0.75 }.ToString());

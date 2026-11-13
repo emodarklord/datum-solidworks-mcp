@@ -46,7 +46,7 @@ public sealed partial class ComBackend
         return study.SetDuration(seconds) ? study.Name : throw new DatumException(ErrorCode.SolidworksError, $"SOLIDWORKS refused a {seconds} s study");
     });
 
-    public string AddMotionMotor(string id, string study, MotionMotorSpec spec) => Call(() =>
+    public MotorMade AddMotionMotor(string id, string study, MotionMotorSpec spec) => Call(() =>
     {
         var document = Find(id);
         var motion = StudyOf(document, study);
@@ -70,12 +70,12 @@ public sealed partial class ComBackend
             motor.ConstantSpeedMotor(spec.Rpm!.Value * 2 * Math.PI / 60);
         }
 
+        var owner = ((IEntity)target).GetComponent() as IComponent2;
         if (motion.CreateFeature(motor) is IFeature made)
         {
-            return made.Name;
+            return new MotorMade(made.Name, owner?.Name2, (owner?.GetParent() as IComponent2)?.Name2);
         }
 
-        var owner = ((IEntity)target).GetComponent() as IComponent2;
         var nested = owner?.GetParent() is IComponent2 parent ? $" inside {parent.Name2}{(parent.Solving == (int)swComponentSolvingOption_e.swComponentFlexibleSolving ? ", which is flexible" : ", which is rigid")}" : "";
         throw new DatumException(
             ErrorCode.FeatureFailed,

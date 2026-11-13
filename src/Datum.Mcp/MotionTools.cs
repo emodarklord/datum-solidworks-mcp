@@ -66,8 +66,10 @@ public static class MotionTools
                 var target = await AssemblyTools.AssemblyAsync(client, doc, cancellationToken).ConfigureAwait(false);
                 DocumentTools.RequireEditable(workspace, target);
                 var motor = await client.RunAsync(b => b.AddMotionMotor(target.Id, study, spec), MotionTimeout, cancellationToken).ConfigureAwait(false);
-                Record(solidWorks, target, $"added {motor}");
-                return $"{motor} on {face}\n";
+                Record(solidWorks, target, $"added {motor.Name}");
+                return motor.Parent is { } parent
+                    ? $"{motor.Name} on {face}\nWARNING: {face} is on {motor.Part} inside {parent}. A motor on a part inside a sub-assembly often moves nothing, rigid or flexible; check with motion_run, and if nothing moves, drive a face on a part that sits directly in this assembly\n"
+                    : $"{motor.Name} on {face}\n";
             },
             cancellationToken));
 
@@ -116,7 +118,7 @@ public static class MotionTools
                 var found = await client.RunAsync(b => b.RunMotionStudy(target.Id, study, picked, hold), MotionTimeout, cancellationToken).ConfigureAwait(false);
                 var moving = found.GroupBy(s => s.Component).Where(group => group.Any(s => !s.Stationary)).SelectMany(group => group).OrderBy(s => s.Seconds).ToList();
                 var still = found.Select(s => s.Component).Distinct().Count() - moving.Select(s => s.Component).Distinct().Count();
-                var report = new StringBuilder(moving.Count == 0 ? "NOTHING MOVED. Explode and collapse paths don't move components, so they can't be proved here; check the frames from motion_export\n" : "");
+                var report = new StringBuilder(moving.Count == 0 ? "NOTHING MOVED. A motor on a part inside a sub-assembly, or on a part its mates hold still, moves nothing: drive a face on a part that sits directly in this assembly. Explode and collapse paths don't move components, so check those in the frames from motion_export\n" : "");
                 foreach (var sample in moving)
                 {
                     report.Append(CultureInfo.InvariantCulture, $"{sample}\n");

@@ -274,6 +274,8 @@ public sealed class FakeBackend : ISolidWorksBackend
 
     public string? ShowingStudy { get; set; }
 
+    public HashSet<string> NestedFaces { get; } = [];
+
     public Lesson ReadLesson(string id, IReadOnlyList<string> features)
     {
         Enter();
@@ -907,11 +909,11 @@ public sealed class FakeBackend : ISolidWorksBackend
         return study;
     }
 
-    public string AddMotionMotor(string id, string study, MotionMotorSpec spec)
+    public MotorMade AddMotionMotor(string id, string study, MotionMotorSpec spec)
     {
         Enter();
         _ = StudySeconds(id, study);
-        return "RotaryMotor1";
+        return new MotorMade("RotaryMotor1", NestedFaces.Contains(spec.Face) ? "Gear_1-1" : null, NestedFaces.Contains(spec.Face) ? "gear_assembly-1" : null);
     }
 
     public void AddMotionPath(string id, string study, MotionPathSpec spec)

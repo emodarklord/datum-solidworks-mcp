@@ -222,7 +222,7 @@ public interface ISolidWorksBackend : IDisposable
 
     string NewMotionStudy(string id, string? name, double seconds);
 
-    string AddMotionMotor(string id, string study, MotionMotorSpec spec);
+    MotorMade AddMotionMotor(string id, string study, MotionMotorSpec spec);
 
     void AddMotionPath(string id, string study, MotionPathSpec spec);
 
